@@ -1,2 +1,11 @@
-# UGR-GII-CCIA-4-VC-Vision_por_computador-17-18-Practicas
-Prácticas de la asignatura VC (4 curso) realizadas en la ETSIIT, UGR en el curso 2017/2018 en Python y OpenCV
+# Prácticas VC - 4º - UGR - CCIA - ETSIIT - GII
+
+Prácticas realizadas en la asignatura VC (Visión por Computador) del grado en Ingeniería Informática en el curso 2017/2018, UGR.
+
+## Autores
+
+
+Francisco Javier Caracuel Beltrán
+
+
+###### GNU General Public License v3.0
