@@ -144,6 +144,10 @@ def show_images(imgs, names = list(), cols = 3, title = ""):
     # que les corresponde en la tabla
     for i, img in enumerate(imgs):
 
+        # La imagen se recibe con flotantes, por lo que se hace el cambio a
+        # enteros
+        img = copy.deepcopy(img).astype(int)
+
         # Se indica el número de filas y columnas y la posición que ocupa la
         # imagen actual en esa tabla
         plt.subplot(rows, cols, i+1)
@@ -229,23 +233,27 @@ def convolution_b(img, sigma, mask = -1, border = -1):
 # Sección C
 #
 
-def convolution_c(img , kernel = None, kernel_y = None, sigma = 0, border = cv2.BORDER_DEFAULT, x = 1, y = 1, normalize = True):
+def convolution_c(img , kernel_x = None, kernel_y = None, sigma = 0, border = cv2.BORDER_DEFAULT, normalize = True, own = False):
     """
 
-    Dada una imagen (img) y un núcleo (kernel) realiza una convolución de la
+    Dada una imagen (img) y un núcleo (kernel_x) realiza una convolución de la
     imagen utilizando dicho núcleo.
     Se aplicará sucesivamente el núcleo por todas las filas de la imagen y con
     esta transformación se vuelve a aplicar a todas las columnas.
-    Si se recibe un kernel "None", se extrae el kernel a través de la
+    Si se recibe un kernel_x "None", se extrae el kernel a través de la
     función cv2.getGaussianKernel().
-    Si se recibe un kernel_y "None", será el mismo kernel ya calculado.
-    Se puede indicar un borde, que por defecto está deshabilitado.
-    x indica si realiza la convolución por filas. Por defecto, sí la realiza.
-    Si x = -1, no realiza la convolución por filas.
-    y indica si realiza la convolución por columnas. Por defecto, sí la realiza.
-    Si y = -1, no realiza la convolución por columnas.
+    Si se recibe un kernel_y "None", será el mismo kernel ya calculado en
+    kernel_x.
+    Se puede indicar un borde, que por defecto está deshabilitado. Nota: si se
+    utiliza la propia función de convolución añadida a partir del Bonus 2, la
+    opción de borde no se contempla al utilizarse por defecto un borde
+    reflejado.
     Permite la opción de normalizar, que por defecto está activa. Se le puede
     enviar el parámetro normalize = False para que no la haga.
+    En el Bonus 2 se desarrolla la propia función de convolución y se adapta
+    en este apartado (ya que se utiliza para el resto de práctica) para poder
+    utilizarla. El parámetro "own" indica si se utiliza o no la propia función
+    de convolución. Por defecto no se utiliza.
 
     -------------------
     Opciones para el borde:
@@ -266,12 +274,12 @@ def convolution_c(img , kernel = None, kernel_y = None, sigma = 0, border = cv2.
     img = copy.deepcopy(img)
 
     # Se comprueba si se calcula el kernel
-    if kernel is None:
-        kernel = cv2.getGaussianKernel(6*sigma+1, sigma)
+    if kernel_x is None:
+        kernel_x = cv2.getGaussianKernel(6*sigma+1, sigma)
 
     # Se comprueba si se calcula el kernel_y
     if kernel_y is None:
-        kernel_y = kernel
+        kernel_y = kernel_x
 
     # Se obtiene el número de filas y columnas que tiene la imagen. La función
     # shape devuelve también los canales siempre que la imagen no esté en
@@ -299,43 +307,83 @@ def convolution_c(img , kernel = None, kernel_y = None, sigma = 0, border = cv2.
     # canales de la imagen, ya que esta función internamente se encarga de su
     # procesamiento.
 
-    # Se comprueba si debe realizar la convolución por filas
-    if x >= 0:
+    # Se recorren las filas de la imagen haciendo la convolución
+    for i in range(rows):
 
-        # Se recorren las filas de la imagen haciendo la convolución
-        for i in range(rows):
-            # Se modifica la fila "i" con la convolución, indicando la fila "i",
-            # el núcleo que se quiere utilizar y la profundidad por defecto de la
-            # imagen.
-            # La fila de una imagen es una lista (vector) con "cols" enteros. El
-            # resultado de aplicar filter2D devuelve una lista de "cols" listas,
-            # por lo que al hacer la asignación da error. Se debe guardar el
-            # resultado de hacer convolución y más tarde transformar la lista de
-            # listas en una lista de enteros.
-            resConv = cv2.filter2D(img[i, :], -1, kernel, borderType=border)
+        # Se modifica la fila "i" con la convolución, indicando la fila "i",
+        # el núcleo que se quiere utilizar y la profundidad por defecto de la
+        # imagen.
+        # La fila de una imagen es una lista (vector) con "cols" enteros. El
+        # resultado de aplicar filter2D devuelve una lista de "cols" listas,
+        # por lo que al hacer la asignación da error. Se debe guardar el
+        # resultado de hacer convolución y más tarde transformar la lista de
+        # listas en una lista de enteros.
 
-            # Se guarda la lista de enteros creada en su fila correspondiente
-            #img[i, :] = [val for sublist in resConv for val in sublist]
+        ####
+        # Ampliación Bonus 2
+        #
+
+        # A partir del Bonus 2, la función de convolución es propia, por lo que
+        # en este punto se indica si se utiliza la propia o cv2.filter2D().
+        if own:
+
+            # La función de convolución propia devuelve una estructura
+            # diferente a cv2.filter2D(). cv2.filter2D() devuelve una lista de
+            # listas, la función de convolución propia devuelve una lista con
+            # todos los elementos. El contenido de ambas es el mismo.
+            img[i, :] = filter_2d(img[i, :], kernel_x)
+
+        # Si no se utiliza la propia, se utiliza cv2.filter2D
+        else:
+
+            resConv = cv2.filter2D(img[i, :], -1, kernel_x, borderType=border)
+
+            # Se guarda la lista de enteros creada en su fila correspondiente.
+            # Como cv2.filter2D devuelve una lista de listas, de este modo se
+            # convierte a lista de valores y se asigna a la fila correspondiente
             img[i, :] = [sublist[0] for sublist in resConv]
 
-    # Se comprueba si debe realizar la convolución por columnas
-    if y >= 0:
+        #
+        ####
 
-        # Se recorren las columnas de la imagen haciendo la convolución
-        for i in range(cols):
-            # Se modifica la columna "i" con la convolución, indicando la columna
-            # "i", el núcleo que se quiere utilizar y la profundidad por defecto de
-            # la imagen
-            # La columna de una imagen es una lista (vector) con "rows" enteros. El
-            # resultado de aplicar filter2D devuelve una lista de "rows" listas,
-            # por lo que al hacer la asignación da error. Se debe guardar el
-            # resultado de hacer convolución y más tarde transformar la lista de
-            # listas en una lista de enteros.
+    # Se recorren las columnas de la imagen haciendo la convolución
+    for i in range(cols):
+
+        # Se modifica la columna "i" con la convolución, indicando la columna
+        # "i", el núcleo que se quiere utilizar y la profundidad por defecto de
+        # la imagen
+        # La columna de una imagen es una lista (vector) con "rows" enteros. El
+        # resultado de aplicar filter2D devuelve una lista de "rows" listas,
+        # por lo que al hacer la asignación da error. Se debe guardar el
+        # resultado de hacer convolución y más tarde transformar la lista de
+        # listas en una lista de enteros.
+
+        ####
+        # Ampliación Bonus 2
+        #
+
+        # A partir del Bonus 2, la función de convolución es propia, por lo que
+        # en este punto se indica si se utiliza la propia o cv2.filter2D().
+        if own:
+
+            # La función de convolución propia devuelve una estructura
+            # diferente a cv2.filter2D(). cv2.filter2D() devuelve una lista de
+            # listas, la función de convolución propia devuelve una lista con
+            # todos los elementos. El contenido de ambas es el mismo.
+            img[:, i] = filter_2d(img[:, i], kernel_y)
+
+        # Si no se utiliza la propia, se utiliza cv2.filter2D
+        else:
+
             resConv = cv2.filter2D(img[:, i], -1, kernel_y, borderType=border)
 
-            # Se guarda la lista de enteros creada en su fila correspondiente
-            #img[:, i] = [val for sublist in resConv for val in sublist]
+            # Se guarda la lista de enteros creada en su fila correspondiente.
+            # Como cv2.filter2D devuelve una lista de listas, de este modo se
+            # convierte a lista de valores y se asigna a la fila correspondiente
             img[:, i] = [sublist[0] for sublist in resConv]
+
+        #
+        ####
 
     # Se normalizan los resultados calculados
     if normalize:
@@ -351,12 +399,13 @@ def convolution_c(img , kernel = None, kernel_y = None, sigma = 0, border = cv2.
 # Sección D
 #
 
-def convolution_d(img , kernel = None, ksize = 3, sigma = 0, border = cv2.BORDER_DEFAULT, dx = 1, dy = 1):
+def convolution_d(img , kernel_x = None, kernel_y = None, ksize = 3, sigma = 0, border = cv2.BORDER_DEFAULT, dx = 1, dy = 1, own = False):
     """
 
     Dada una imagen (img), realiza convolución con núcleo de primera derivada
     de tamaño ksize. Si se recibe un sigma, hace alisamiento con dicho sigma.
     Se puede indicar un borde, que por defecto está deshabilitado.
+    Si se establece "own" a True utiliza la función de convolución propia.
 
     -------------------
     Opciones para el borde:
@@ -372,46 +421,43 @@ def convolution_d(img , kernel = None, ksize = 3, sigma = 0, border = cv2.BORDER
 
     """
 
+    # Antes de hacer la convolución, se alisa para evitar ruido.
+    if sigma > 0:
+        img = convolution_c(img, sigma = sigma, own = own)
+
     # Si se modifican los valores de img, se verán reflejados en el resto de
     # imágenes que hagan uso de la imagen base. Para evitar esto, se hace un
     # copiado en el que no es por referencia
-    img = copy.deepcopy(img)
+    img_x = copy.deepcopy(img)
+    img_y = copy.deepcopy(img)
 
-    # Se crean los kernels con respecto a x y con respecto a y para aplicarlos
-    # independientemente
-    kernel_x = kernel
-    kernel_y = kernel
+    # Se comprueba si se calcula el kernel_x
+    if kernel_x is None:
 
-    # Se comprueba si se calcula el kernel
-    if kernel is None:
-
-        # Se calcula el kernel de la primera derivada. Esto devuelve dos
-        # kernels, uno con respecto a x y otro con respecto a y de tamaño ksize.
-        # Se guarda cada uno donde corresponde.
-        kernel = cv2.getDerivKernels(dx, dy, ksize)
-        kernel_x = kernel[0]
-        kernel_y = kernel[1]
+        # Se calcula el kernel de la primera derivada con respecto a x.
+        kernel_x = cv2.getDerivKernels(dx, 0, ksize)
 
         # Para aplicar convolución y no correlación se debe dar la vuelta al
         # kernel. Indicando -1 da la vuelta en el eje x e y, como solo tiene
         # uno, es correcto.
         #kernel_x = cv2.flip(kernel_x, -1)
+
+    # Se comprueba si se calcula el kernel_y
+    if kernel_y is None:
+
+        # Se calcula el kernel de la primera derivada con respecto a y.
+        kernel_y = cv2.getDerivKernels(0, dy, ksize)
+
+        # Para aplicar convolución y no correlación se debe dar la vuelta al
+        # kernel. Indicando -1 da la vuelta en el eje x e y, como solo tiene
+        # uno, es correcto.
         #kernel_y = cv2.flip(kernel_y, -1)
 
-    # Antes de hacer la convolución, se alisa para evitar ruido.
-    if sigma > 0:
-        img = convolution_c(img, sigma=sigma)
-
-    # Como se devuelven dos imágenes y se le aplica a una, convolución por filas
-    # y a la otra por columnas, se crean dos imágenes nuevas
-    img_x = copy.deepcopy(img)
-    img_y = copy.deepcopy(img)
-
     # Se hace la convolución por filas. Se indica que no se haga por columnas
-    img_x = convolution_c(img_x, kernel_x, y = -1, border = border)
+    img_x = convolution_c(img_x, kernel_x[0], kernel_x[1], border = border, own = own)
 
     # Se hace la convolución por columnas. Se indica que no se haga por filas
-    img_y = convolution_c(img_y, kernel_y, x = -1, border = border)
+    img_y = convolution_c(img_y, kernel_y[0], kernel_y[1], border = border, own = own)
 
     # Se devuelve la imagen con la convolución realizada
     return img_x, img_y
@@ -423,12 +469,13 @@ def convolution_d(img , kernel = None, ksize = 3, sigma = 0, border = cv2.BORDER
 # Sección E
 #
 
-def convolution_e(img , kernel = None, ksize = 3, sigma = 0, border = cv2.BORDER_DEFAULT, dx = 2, dy = 2):
+def convolution_e(img , kernel_x = None, kernel_y = None, ksize = 3, sigma = 0, border = cv2.BORDER_DEFAULT, dx = 2, dy = 2, own = False):
     """
 
     Dada una imagen (img), realiza convolución con núcleo de segunda derivada
     de tamaño ksize. Si se recibe un sigma, hace alisamiento con dicho sigma.
     Se puede indicar un borde, que por defecto está deshabilitado.
+    Si se establece "own" a True utiliza la función de convolución propia.
 
     -------------------
     Opciones para el borde:
@@ -448,7 +495,7 @@ def convolution_e(img , kernel = None, ksize = 3, sigma = 0, border = cv2.BORDER
     # Se aprovecha que ya se encuentra definida y se le envían los mismos
     # parámetros que recibe esta función, pero indicando que se realiza la
     # segunda derivada (dx, dy por defecto de esta función)
-    return convolution_d(img, kernel, ksize, sigma, border, dx, dy)
+    return convolution_d(img, kernel_x, kernel_y, ksize, sigma, border, dx, dy, own)
 
 #
 ########
@@ -457,12 +504,13 @@ def convolution_e(img , kernel = None, ksize = 3, sigma = 0, border = cv2.BORDER
 # Sección F
 #
 
-def convolution_f(img , kernel = None, ksize = 3, sigma = 0, border = cv2.BORDER_DEFAULT, dx = 2, dy = 2):
+def convolution_f(img , kernel_x = None, kernel_y = None, ksize = 3, sigma = 0, border = cv2.BORDER_DEFAULT, dx = 2, dy = 2, own = False):
     """
 
     Dada una imagen (img), realiza convolución con núcleo Laplaciana-Gaussiana
     de tamaño ksize. Si se recibe un sigma, hace alisamiento con dicho sigma.
     Se puede indicar un borde, que por defecto está deshabilitado.
+    Si se establece "own" a True utiliza la función de convolución propia.
 
     -------------------
     Opciones para el borde:
@@ -477,6 +525,10 @@ def convolution_f(img , kernel = None, ksize = 3, sigma = 0, border = cv2.BORDER
 
     """
 
+    # Se aplica el alisamiento si sigma > 0
+    """if sigma > 0:
+        img = convolution_c(img, sigma = sigma, own = own)
+
     # Se comprueba si se calcula el kernel
     if kernel is None:
 
@@ -490,19 +542,19 @@ def convolution_f(img , kernel = None, ksize = 3, sigma = 0, border = cv2.BORDER
         # Para aplicar convolución y no correlación se debe dar la vuelta al
         # kernel. Indicando -1 da la vuelta en el eje x e y, como solo tiene
         # uno, es correcto.
-        #kernel_x = cv2.flip(kernel_x, -1)
-        #kernel_y = cv2.flip(kernel_y, -1)
+        kernel_x = cv2.flip(kernel_x, -1)
+        kernel_y = cv2.flip(kernel_y, -1)
 
         # El resultado es la suma de la derivada segunda con respecto a x y con
         # respecto a y
         kernel = kernel_x + kernel_y
 
-    # Se aplica el alisamiento si sigma > 0
-    if sigma > 0:
-        img = convolution_c(img, sigma = sigma)
-
     # Se convoluciona la imagen con la segunda derivada calculada anteriormente
-    return convolution_c(img, kernel, border = border)
+    return convolution_c(img, kernel, border = border)"""
+
+    img_x, img_y = convolution_e(img, kernel_x, kernel_y, ksize, sigma, border, dx, dy, own)
+
+    return img_x + img_y
 
 #
 ########
@@ -567,7 +619,7 @@ def show_pyr(imgs):
 
     return img
 
-def generate_gaussian_pyr_imgs(img, n = 4, sigma = 0, border = cv2.BORDER_DEFAULT):
+def generate_gaussian_pyr_imgs(img, n = 4, sigma = 0, sigma_down = 1, border = cv2.BORDER_DEFAULT, own = False):
     """
 
     Función que, a partir de una imagen, genera n imágenes (por defecto, 4) de
@@ -577,6 +629,8 @@ def generate_gaussian_pyr_imgs(img, n = 4, sigma = 0, border = cv2.BORDER_DEFAUL
     es necesario realizarlo antes.
     El valor de sigma indica el alisamiento que se realiza antes de generar
     todas las imágenes.
+    sigma_down indica el alisamiento que se le realiza cuando se reduce
+    manualmente.
     Se puede indicar un borde, que por defecto está deshabilitado.
 
     -------------------
@@ -595,7 +649,7 @@ def generate_gaussian_pyr_imgs(img, n = 4, sigma = 0, border = cv2.BORDER_DEFAUL
 
     # Antes de generar las imágenes, se alisa para evitar ruido.
     if sigma > 0:
-        img = convolution_c(img, sigma=sigma)
+        img = convolution_c(img, sigma=sigma, own = own)
 
     # Se resta 1 al número de imagenes que se quiere que aparezcan
     n -= 1
@@ -609,7 +663,13 @@ def generate_gaussian_pyr_imgs(img, n = 4, sigma = 0, border = cv2.BORDER_DEFAUL
     # Se añaden tantas imágenes como se haya indicado
     for i in range(n):
 
-        imgs.append(cv2.pyrDown(imgs[i], borderType=border))
+        # Si las imágenes se generan manualmente
+        if own:
+            imgs.append(pyr_down(imgs[i], sigma_down, own))
+
+        # Si se utiliza cv2.pyrDown()
+        else:
+            imgs.append(cv2.pyrDown(imgs[i], borderType=border))
 
     return imgs
 
@@ -620,7 +680,7 @@ def generate_gaussian_pyr_imgs(img, n = 4, sigma = 0, border = cv2.BORDER_DEFAUL
 # Sección H
 #
 
-def generate_laplacian_pyr_imgs(img, n = 4, sigma = 0, border = cv2.BORDER_DEFAULT):
+def generate_laplacian_pyr_imgs(img, n = 4, sigma = 0, border = cv2.BORDER_DEFAULT, own = False):
     """
 
     Función que, a partir de una imagen, genera n imágenes (por defecto, 4) de
@@ -631,6 +691,7 @@ def generate_laplacian_pyr_imgs(img, n = 4, sigma = 0, border = cv2.BORDER_DEFAU
     El valor de sigma indica el alisamiento que se realiza antes de generar
     todas las imágenes.
     Se puede indicar un borde, que por defecto está deshabilitado.
+    Si se establece "own" a True utiliza la función de convolución propia.
 
     -------------------
     Opciones para el borde:
@@ -648,7 +709,7 @@ def generate_laplacian_pyr_imgs(img, n = 4, sigma = 0, border = cv2.BORDER_DEFAU
 
     # Antes de generar las imágenes, se alisa para evitar ruido.
     if sigma > 0:
-        img = convolution_c(img, sigma=sigma)
+        img = convolution_c(img, sigma=sigma, own = own)
 
     # Se resta 1 al número de imagenes que se quiere que aparezcan
     n -= 1
@@ -723,20 +784,21 @@ def generate_laplacian_pyr_imgs(img, n = 4, sigma = 0, border = cv2.BORDER_DEFAU
 # Sección 1
 #
 
-def generate_low_high_imgs(img1, img2, sigma1 = 0, sigma2 = 0):
+def generate_low_high_imgs(img1, img2, sigma1 = 0, sigma2 = 0, own = False):
     """
     Función que recibe dos imágenes (img1 y img2) y devuelve la imagen con las
     frecuencias bajas de img1 y las frecuencias altas de img2.
     Se puede especificar el sigma de cada imagen para ajustarla dependiendo
     de cada imagen.
+    Si se establece "own" a True utiliza la función de convolución propia.
     """
 
     # Se calculan las frecuencias bajas aplicando un filtro gaussiano
-    img1 = convolution_c(img1, sigma = sigma1)
+    img1 = convolution_c(img1, sigma = sigma1, own = own)
 
     # Se calculan las frecuencias altas con la diferencia de la imagen original
     # y la imagen alisada
-    img2 = img2 - convolution_c(img2, sigma = sigma2, normalize = False)
+    img2 = img2 - convolution_c(img2, sigma = sigma2, normalize = False, own = own)
 
     return img1, img2
 
@@ -747,7 +809,7 @@ def generate_low_high_imgs(img1, img2, sigma1 = 0, sigma2 = 0):
 # Sección 2
 #
 
-def generate_low_high_hybrid_imgs(img1, img2, sigma1 = 0, sigma2 = 0):
+def generate_low_high_hybrid_imgs(img1, img2, sigma1 = 0, sigma2 = 0, own = False):
     """
     Función que recibe dos imágenes (img1 y img2) y devuelve la imagen con las
     frecuencias bajas de img1, las frecuencias altas de img2 y la imagen híbrida
@@ -755,26 +817,28 @@ def generate_low_high_hybrid_imgs(img1, img2, sigma1 = 0, sigma2 = 0):
     Hace uso de la función generate_low_high_imgs() que ya las calcula.
     Se puede especificar el sigma de cada imagen para ajustarla dependiendo
     de cada imagen.
+    Si se establece "own" a True utiliza la función de convolución propia.
     """
 
     # Se calculan las frecuencias bajas aplicando un filtro gaussiano
-    img1, img2 = generate_low_high_imgs(img1, img2, sigma1, sigma2)
+    img1, img2 = generate_low_high_imgs(img1, img2, sigma1, sigma2, own)
 
     # La imagen híbrida es la suma de la imagen con frecuencias bajas y altas
     img_hybrid = img1 + img2
 
     return img1, img2, img_hybrid
 
-def show_hybrid(img1, img2, sigma1 = 0, sigma2 = 0):
+def show_hybrid(img1, img2, sigma1 = 0, sigma2 = 0, own = False):
     """
-    Muestra las imágenes de frecuencia baja, alta e híbrida en una ventana
+    Muestra las imágenes de frecuencia baja, alta e híbrida en una ventana.
+    Si se establece "own" a True utiliza la función de convolución propia.
     """
 
     # Lista con las imágenes
     imgs = list()
 
     # Se generan las imágenes
-    img_low, img_high, img_hybrid = generate_low_high_hybrid_imgs(img1, img2, sigma1, sigma2)
+    img_low, img_high, img_hybrid = generate_low_high_hybrid_imgs(img1, img2, sigma1, sigma2, own)
 
     # Se muestra la imagen con frecuencias bajas
     imgs.append(img_low)
@@ -806,6 +870,172 @@ def show_hybrid(img1, img2, sigma1 = 0, sigma2 = 0):
 #
 ########
 
+#
+################################################################################
+
+################################################################################
+# Bonus
+#
+
+########
+# Bonus 1
+#
+
+def f_gaussian(x, sigma):
+    """
+    Calcula f(x) = exp(-0.5 * ((x^2)/sigma^2)) y devuelve el resultado
+    """
+
+    return math.exp(-0.5*((x*x)/(sigma*sigma)))
+
+def get_gaussian_kernel(sigma = 0):
+
+    # El formato que devuelve cv2.getGaussianKernel() es una lista de listas,
+    # donde en cada sublista se encuentra un elemento de la máscara, por lo que
+    # se crea una estructura similar
+    kernel = []
+
+    # Se calcula el rango que debe tener la máscara.
+    # El intervalo de la máscara óptimo que se ha estudiado para un sigma de 1
+    # es [-3, 3]. Esto indica que el intervalo para cualquier sigma es
+    # [-3sigma, 3sigma], por tanto, la longitud que debe tener la máscara es
+    # de 2*3*sigma. Como el punto intermedio se debe tener en cuenta, se suma
+    # 1 a la operación.
+    # Si se hace uso de la función range indicando el inicio y el fin+1,
+    # devuelve los valores enumerados.
+    init_mask = -3*sigma
+    end_mask = 3*sigma+1
+
+    # Se crea la máscara con la función gaussiana
+    kernel = [[f_gaussian(i, sigma)] for i in range(init_mask, end_mask)]
+
+    # La suma de todos los valores de la máscara debe devolver 1, por lo que es
+    # necesario normalizarla.
+    # Para normalizarla se obtiene la suma de todos los elementos
+    sum_kernel = np.sum(kernel)
+
+    # Se dividen todos los elementos del kernel entre el máximo para normalizar
+    kernel = np.divide(kernel, sum_kernel)
+
+    # Se devuelve el kernel
+    return kernel
+
+#
+########
+
+########
+# Bonus 2
+#
+
+def filter_2d(signal, kernel):
+    """
+    Se encarga de hacer convolución entre un vector y un kernel 1D que se
+    recibe por parámetro.
+    El resultado es un vector del mismo tamaño que el vector señal recibido con
+    la convolución realizada.
+    """
+
+    # Para realizar la convolución a todo el vector se debe ampliar lo
+    # suficiente por los extremos para poder aplicar el kernel a todas las
+    # posiciones.
+
+    # Se guarda la longitud inicial del vector señal y del kernel.
+    length_signal = len(signal)
+    length_kernel = len(kernel)
+
+    # Se guarda el tamaño que debe crecer en cada extremo. No interesa
+    # redondear, solo truncar para no añadir más espacio del necesario.
+    grow = (int)(length_kernel/2)
+
+    # Lo primero es ampliar el vector que se recibe para que el kernel pueda
+    # ser pasado por todas las posiciones.
+
+    # Se crea un array del tamaño que debe crecer signal.
+    l_init = np.ndarray(grow)
+    l_end = np.ndarray(grow)
+
+    # Se reflejan los valores iniciales de signal en el array que se concatena
+    # al inicio
+    l_init[:] = signal[grow-1::-1]
+
+    # Se reflejan los valores finales de signal en el array que se concatena al
+    # final
+    l_end[:] = signal[-1:-grow-1:-1]
+
+    # Se concatenan las listas creadas para hacer el espejo
+    new_signal = np.concatenate((l_init,signal, l_end))
+
+    # Al modificarse los valores del vector de entrada, se debe hacer una copia
+    # para no modificar la imagen original
+    conv = copy.deepcopy(signal)
+
+    # Se debe recorrer cada posición del vector señal. Se comprueba cada casilla
+    # del vector que tiene los bordes reflejados, de manera que se multiplica
+    # cada segmento del vector señal con el kernel.
+    # Cuando se termina la multiplicación, se deben sumar todos los valores
+    # calculados y esta suma será el nuevo valor de la posición por la que se
+    # está iterando
+    for i in range(length_signal):
+        res = 0
+
+        for j in range(length_kernel):
+            res += kernel[j] * new_signal[i+j]
+
+        conv[i] = np.array([res])
+
+    # Se devuelve el vector convolucionado
+    return conv
+
+#
+########
+
+########
+# Bonus 3
+#
+
+# No se implementa la función porque se ha adaptado la función del apartado C
+# que realizaba la convolución utilizando cv2.filter2D(). Ahora la función del
+# apartado C (convolution_c()) puede recibir como parámetro own True o False,
+# de modo que si own = False se ejecuta como se especifica en el apartado C y,
+# si own = True se ejecuta con la función de convolución propia, es decir,
+# como actuaría si se hubiese implementado la función en este Bonus 3.
+
+#
+########
+
+########
+# Bonus 4
+#
+
+def pyr_down(img, sigma = 1, own = False):
+    """
+    Función que a partir de una imagen dada, la reduce a la mitad. Para evitar
+    los saltos entre píxeles se le aplica un alisamiento dado por sigma.
+    Permite utilizar la función de convolución propia en el alisamiento si se
+    especifica el parámetro "own" como True.
+    """
+
+    # Se copia la imagen para evitar modificar la original
+    img = copy.deepcopy(img)
+
+    # Se reducen las filas a la mitad
+    img = img[0::2]
+
+    # Se reducen las columnas a la mitad
+    img = img[:, 0::2]
+
+    # Se alisa para evitar los saltos
+    img = convolution_c(img, sigma = sigma, own = own)
+
+    # Se devuelve la imagen reducida
+    return img
+
+#
+########
+
+#
+################################################################################
+
 ################################################################################
 # Pruebas
 #
@@ -813,6 +1043,62 @@ def show_hybrid(img1, img2, sigma1 = 0, sigma2 = 0):
 # En caso de utilizar este fichero de manera externa para el uso de sus
 # funciones no se ejecutará ningún código
 if __name__ == "__main__":
+
+    # Se insertan los ejercicios que se quieren ejecutar
+    ex = list()
+
+    #ex.append(1)
+    #ex.append(2)
+    #ex.append(3)
+    #ex.append(4)
+    #ex.append(5)
+    #ex.append(6)
+    #ex.append(7)
+    #ex.append(8)
+    #ex.append(9)
+    #ex.append(10)
+    #ex.append(11)
+    #ex.append(12)
+    #ex.append(13)
+    #ex.append(14)
+    ex.append(15)
+
+    # Listas para la visualización de las imágenes
+    imgs = []
+    imgs_title = []
+
+    # Se cargan las imágenes a mostrar, se aplica el esquema de color, se
+    # convierten los valores a flotantes para trabajar bien con ellos y se le
+    # asigna un título
+    img1 = cv2.imread(path+'cat.bmp')
+    img1 = set_c_map(img1, cmap)
+    img1 = img1.astype(float)
+    img_title1 = "Gato"
+
+    img2 = cv2.imread(path+'dog.bmp')
+    img2 = set_c_map(img2, cmap)
+    img2 = img2.astype(float)
+    img_title2 = "Perro"
+
+    img3 = cv2.imread(path+'plane.bmp')
+    img3 = set_c_map(img3, cmap)
+    img3 = img3.astype(float)
+    img_title3 = "Avión"
+
+    img4 = cv2.imread(path+'bird.bmp')
+    img4 = set_c_map(img4, cmap)
+    img4 = img4.astype(float)
+    img_title4 = "Pájaro"
+
+    img5 = cv2.imread(path+'einstein.bmp')
+    img5 = set_c_map(img5, cmap)
+    img5 = img5.astype(float)
+    img_title5 = "Einstein"
+
+    img6 = cv2.imread(path+'marilyn.bmp')
+    img6 = set_c_map(img6, cmap)
+    img6 = img6.astype(float)
+    img_title6 = "Marilyn"
 
     ############################################################################
     # Apartado 1
@@ -827,52 +1113,26 @@ if __name__ == "__main__":
     una misma ventana. Usar esta función en todos los demás apartados.
     """
 
-    # Se cargan las imágenes a mostrar, se aplica el esquema de color y se le
-    # asigna un título
-    img1 = cv2.imread(path+'cat.bmp')
-    img1 = set_c_map(img1, cmap)
-    img_title1 = "Gato"
+    if 1 in ex:
 
-    img2 = cv2.imread(path+'dog.bmp')
-    img2 = set_c_map(img2, cmap)
-    img_title2 = "Perro"
+        # Se añaden las imágenes a la lista de imágenes
+        imgs.append(img1)
+        imgs.append(img2)
+        imgs.append(img3)
+        imgs.append(img4)
+        imgs.append(img5)
+        imgs.append(img6)
 
-    img3 = cv2.imread(path+'plane.bmp')
-    img3 = set_c_map(img3, cmap)
-    img_title3 = "Avión"
+        # Se añaden los títulos que se van a mostrar con las imágenes
+        imgs_title.append(img_title1)
+        imgs_title.append(img_title2)
+        imgs_title.append(img_title3)
+        imgs_title.append(img_title4)
+        imgs_title.append(img_title5)
+        imgs_title.append(img_title6)
 
-    img4 = cv2.imread(path+'bird.bmp')
-    img4 = set_c_map(img4, cmap)
-    img_title4 = "Pájaro"
-
-    img5 = cv2.imread(path+'einstein.bmp')
-    img5 = set_c_map(img5, cmap)
-    img_title5 = "Einstein"
-
-    img6 = cv2.imread(path+'marilyn.bmp')
-    img6 = set_c_map(img6, cmap)
-    img_title6 = "Marilyn"
-
-    # Se añaden las imágenes a la lista de imágenes
-    imgs = []
-    imgs.append(img1)
-    imgs.append(img2)
-    imgs.append(img3)
-    imgs.append(img4)
-    imgs.append(img5)
-    imgs.append(img6)
-
-    # Se añaden los títulos que se van a mostrar con las imágenes
-    imgs_title = []
-    imgs_title.append(img_title1)
-    imgs_title.append(img_title2)
-    imgs_title.append(img_title3)
-    imgs_title.append(img_title4)
-    imgs_title.append(img_title5)
-    imgs_title.append(img_title6)
-
-    # Se muestran las imágenes que se leen inicialmente
-    show_images(imgs, imgs_title)
+        # Se muestran las imágenes que se leen inicialmente
+        show_images(imgs, imgs_title)
 
     #
     ########
@@ -891,22 +1151,24 @@ if __name__ == "__main__":
     dos valores distintos de sigma.
     """
 
-    # Se aplica convolución a la tercera imagen y se muestran los resultados
-    imgs.append(img3)
-    imgs.append(convolution_b(img3, 3))
-    imgs.append(convolution_b(img3, 3, border = cv2.BORDER_REPLICATE))
-    imgs.append(convolution_b(img3, 7))
-    imgs.append(convolution_b(img3, 7, border = cv2.BORDER_CONSTANT))
+    if 2 in ex:
 
-    # Se modifican los nombres a las imágenes creadas
-    imgs_title.append("Original")
-    imgs_title.append("Sigma = 3")
-    imgs_title.append("Sigma = 3, Replicate")
-    imgs_title.append("Sigma = 7")
-    imgs_title.append("Sigma = 7, Constant")
+        # Se aplica convolución a la tercera imagen y se muestran los resultados
+        imgs.append(img3)
+        imgs.append(convolution_b(img3, 3))
+        imgs.append(convolution_b(img3, 3, border = cv2.BORDER_REPLICATE))
+        imgs.append(convolution_b(img3, 7))
+        imgs.append(convolution_b(img3, 7, border = cv2.BORDER_CONSTANT))
 
-    # Se muestran las imágenes con las transformaciones
-    show_images(imgs, imgs_title)
+        # Se modifican los nombres a las imágenes creadas
+        imgs_title.append("Original")
+        imgs_title.append("Sigma = 3")
+        imgs_title.append("Sigma = 3, Replicate")
+        imgs_title.append("Sigma = 7")
+        imgs_title.append("Sigma = 7, Constant")
+
+        # Se muestran las imágenes con las transformaciones
+        show_images(imgs, imgs_title)
 
     #
     ########
@@ -925,21 +1187,23 @@ if __name__ == "__main__":
     distintos de sigma.
     """
 
-    # Se aplica convolución a la tercera imagen y se muestran los resultados
-    imgs.append(img3)
-    imgs.append(convolution_c(img3, sigma=3))
-    imgs.append(convolution_c(img3, sigma=3, border = cv2.BORDER_REPLICATE))
-    imgs.append(convolution_c(img3, sigma=7))
-    imgs.append(convolution_c(img3, sigma=7, border = cv2.BORDER_CONSTANT))
+    if 3 in ex:
 
-    # Se modifican los nombres a las imágenes creadas
-    imgs_title.append("Original")
-    imgs_title.append("Sigma = 3")
-    imgs_title.append("Sigma = 3, Replicate")
-    imgs_title.append("Sigma = 7")
-    imgs_title.append("Sigma = 7, Constant")
+        # Se aplica convolución a la tercera imagen y se muestran los resultados
+        imgs.append(img3)
+        imgs.append(convolution_c(img3, sigma=3))
+        imgs.append(convolution_c(img3, sigma=3, border = cv2.BORDER_REPLICATE))
+        imgs.append(convolution_c(img3, sigma=7))
+        imgs.append(convolution_c(img3, sigma=7, border = cv2.BORDER_CONSTANT))
 
-    show_images(imgs, imgs_title)
+        # Se modifican los nombres a las imágenes creadas
+        imgs_title.append("Original")
+        imgs_title.append("Sigma = 3")
+        imgs_title.append("Sigma = 3, Replicate")
+        imgs_title.append("Sigma = 7")
+        imgs_title.append("Sigma = 7, Constant")
+
+        show_images(imgs, imgs_title)
 
     #
     ########
@@ -958,41 +1222,43 @@ if __name__ == "__main__":
     distintos de sigma.
     """
 
-    # Se aplica convolución a la tercera imagen y se muestran los resultados
-    imgs.append(img3)
+    if 4 in ex:
 
-    # Se hace convolución con núcleo de primera derivada de tamaño 3 sin borde
-    img_x1, img_y1 = convolution_d(img3, ksize = 3)
-    imgs.append(img_x1)
-    imgs.append(img_y1)
+        # Se añade la imagen original
+        imgs.append(img3)
 
-    # Se hace convolución con núcleo de primera derivada de tamaño 3 con borde
-    img_x2, img_y2 = convolution_d(img3, ksize = 3, border = cv2.BORDER_REPLICATE)
-    imgs.append(img_x2)
-    imgs.append(img_y2)
+        # Se hace convolución con núcleo de primera derivada de tamaño 3 sin borde
+        img_x1, img_y1 = convolution_d(img3, ksize = 3)
+        imgs.append(img_x1)
+        imgs.append(img_y1)
 
-    # Se hace convolución con núcleo de primera derivada de tamaño 7 sin borde
-    img_x3, img_y3 = convolution_d(img3, ksize = 7)
-    imgs.append(img_x3)
-    imgs.append(img_y3)
+        # Se hace convolución con núcleo de primera derivada de tamaño 3 con borde
+        img_x2, img_y2 = convolution_d(img3, ksize = 3, border = cv2.BORDER_REPLICATE)
+        imgs.append(img_x2)
+        imgs.append(img_y2)
 
-    # Se hace convolución con núcleo de primera derivada de tamaño 7 sin borde
-    img_x4, img_y4 = convolution_d(img3, ksize = 7, border = cv2.BORDER_CONSTANT)
-    imgs.append(img_x4)
-    imgs.append(img_y4)
+        # Se hace convolución con núcleo de primera derivada de tamaño 7 sin borde
+        img_x3, img_y3 = convolution_d(img3, ksize = 7)
+        imgs.append(img_x3)
+        imgs.append(img_y3)
 
-    # Se modifican los nombres a las imágenes creadas
-    imgs_title.append("Original")
-    imgs_title.append("ksize = 3, dx = 1")
-    imgs_title.append("ksize = 3, dy = 1")
-    imgs_title.append("ksize = 3, dx = 1, Replicate")
-    imgs_title.append("ksize = 3, dy = 1, Replicate")
-    imgs_title.append("ksize = 7, dx = 1")
-    imgs_title.append("ksize = 7, dy = 1")
-    imgs_title.append("ksize = 7, dx = 1, Constant")
-    imgs_title.append("ksize = 7, dy = 1, Constant")
+        # Se hace convolución con núcleo de primera derivada de tamaño 7 sin borde
+        img_x4, img_y4 = convolution_d(img3, ksize = 7, border = cv2.BORDER_CONSTANT)
+        imgs.append(img_x4)
+        imgs.append(img_y4)
 
-    show_images(imgs, imgs_title)
+        # Se añaden los nombres a las imágenes creadas
+        imgs_title.append("Original")
+        imgs_title.append("ksize = 3, dx = 1")
+        imgs_title.append("ksize = 3, dy = 1")
+        imgs_title.append("ksize = 3, dx = 1, Replicate")
+        imgs_title.append("ksize = 3, dy = 1, Replicate")
+        imgs_title.append("ksize = 7, dx = 1")
+        imgs_title.append("ksize = 7, dy = 1")
+        imgs_title.append("ksize = 7, dx = 1, Constant")
+        imgs_title.append("ksize = 7, dy = 1, Constant")
+
+        show_images(imgs, imgs_title)
 
     #
     ########
@@ -1011,41 +1277,43 @@ if __name__ == "__main__":
     distintos de sigma.
     """
 
-    # Se aplica convolución a la tercera imagen y se muestran los resultados
-    imgs.append(img3)
+    if 5 in ex:
 
-    # Se hace convolución con núcleo de segunda derivada de tamaño 3 sin borde
-    img_x1, img_y1 = convolution_e(img3, ksize = 3)
-    imgs.append(img_x1)
-    imgs.append(img_y1)
+        # Se añade la imagen original
+        imgs.append(img3)
 
-    # Se hace convolución con núcleo de segunda derivada de tamaño 3 con borde
-    img_x2, img_y2 = convolution_e(img3, ksize = 3, border = cv2.BORDER_REPLICATE)
-    imgs.append(img_x2)
-    imgs.append(img_y2)
+        # Se hace convolución con núcleo de segunda derivada de tamaño 3 sin borde
+        img_x1, img_y1 = convolution_e(img3, ksize = 3)
+        imgs.append(img_x1)
+        imgs.append(img_y1)
 
-    # Se hace convolución con núcleo de segunda derivada de tamaño 7 sin borde
-    img_x3, img_y3 = convolution_e(img3, ksize = 7)
-    imgs.append(img_x3)
-    imgs.append(img_y3)
+        # Se hace convolución con núcleo de segunda derivada de tamaño 3 con borde
+        img_x2, img_y2 = convolution_e(img3, ksize = 3, border = cv2.BORDER_REPLICATE)
+        imgs.append(img_x2)
+        imgs.append(img_y2)
 
-    # Se hace convolución con núcleo de segunda derivada de tamaño 7 sin borde
-    img_x4, img_y4 = convolution_e(img3, ksize = 7, border = cv2.BORDER_CONSTANT)
-    imgs.append(img_x4)
-    imgs.append(img_y4)
+        # Se hace convolución con núcleo de segunda derivada de tamaño 7 sin borde
+        img_x3, img_y3 = convolution_e(img3, ksize = 7)
+        imgs.append(img_x3)
+        imgs.append(img_y3)
 
-    # Se modifican los nombres a las imágenes creadas
-    imgs_title.append("Original")
-    imgs_title.append("ksize = 3, dx = 2")
-    imgs_title.append("ksize = 3, dy = 2")
-    imgs_title.append("ksize = 3, dx = 2, Replicate")
-    imgs_title.append("ksize = 3, dy = 2, Replicate")
-    imgs_title.append("ksize = 7, dx = 2")
-    imgs_title.append("ksize = 7, dy = 2")
-    imgs_title.append("ksize = 7, dx = 2, Constant")
-    imgs_title.append("ksize = 7, dy = 2, Constant")
+        # Se hace convolución con núcleo de segunda derivada de tamaño 7 sin borde
+        img_x4, img_y4 = convolution_e(img3, ksize = 7, border = cv2.BORDER_CONSTANT)
+        imgs.append(img_x4)
+        imgs.append(img_y4)
 
-    show_images(imgs, imgs_title)
+        # Se modifican los nombres a las imágenes creadas
+        imgs_title.append("Original")
+        imgs_title.append("ksize = 3, dx = 2")
+        imgs_title.append("ksize = 3, dy = 2")
+        imgs_title.append("ksize = 3, dx = 2, Replicate")
+        imgs_title.append("ksize = 3, dy = 2, Replicate")
+        imgs_title.append("ksize = 7, dx = 2")
+        imgs_title.append("ksize = 7, dy = 2")
+        imgs_title.append("ksize = 7, dx = 2, Constant")
+        imgs_title.append("ksize = 7, dy = 2, Constant")
+
+        show_images(imgs, imgs_title)
 
     #
     ########
@@ -1064,30 +1332,32 @@ if __name__ == "__main__":
     dos valores distintos de sigma.
     """
 
-    # Se aplica convolución a la tercera imagen y se muestran los resultados
-    imgs.append(img3)
+    if 6 in ex:
 
-    # Se hace convolución con núcleo Laplaciana-Gaussiana de tamaño 3
-    imgs.append(convolution_f(img3, ksize = 3, sigma = 1))
+        # Se añade la imagen original
+        imgs.append(img3)
 
-    # Se hace convolución con núcleo Laplaciana-Gaussiana de tamaño 3 y bordes
-    imgs.append(convolution_f(img3, ksize = 3, border = cv2.BORDER_REPLICATE))
+        # Se hace convolución con núcleo Laplaciana-Gaussiana de tamaño 3
+        imgs.append(convolution_f(img3, ksize = 3))
 
-    # Se hace convolución con núcleo Laplaciana-Gaussiana de tamaño 7 y sigma 3
-    # para el alisamiento
-    imgs.append(convolution_f(img3, ksize = 7, sigma = 3))
+        # Se hace convolución con núcleo Laplaciana-Gaussiana de tamaño 3 y bordes
+        imgs.append(convolution_f(img3, ksize = 3, border = cv2.BORDER_REPLICATE))
 
-    # Se hace convolución con núcleo Laplaciana-Gaussiana de tamaño 7 y bordes
-    imgs.append(convolution_f(img3, ksize = 7, border = cv2.BORDER_CONSTANT))
+        # Se hace convolución con núcleo Laplaciana-Gaussiana de tamaño 7 y sigma 1
+        # para el alisamiento
+        imgs.append(convolution_f(img3, ksize = 7, sigma = 1))
 
-    # Se modifican los nombres a las imágenes creadas
-    imgs_title.append("Original")
-    imgs_title.append("ksize = 3, Lap, sigma = 1")
-    imgs_title.append("ksize = 3, Lap, Replicate")
-    imgs_title.append("ksize = 7, Lap, sigma = 1")
-    imgs_title.append("ksize = 7, Lap, Constant")
+        # Se hace convolución con núcleo Laplaciana-Gaussiana de tamaño 7 y bordes
+        imgs.append(convolution_f(img3, ksize = 7, border = cv2.BORDER_CONSTANT))
 
-    show_images(imgs, imgs_title)
+        # Se modifican los nombres a las imágenes creadas
+        imgs_title.append("Original")
+        imgs_title.append("ksize = 3, Lap, sigma = 1")
+        imgs_title.append("ksize = 3, Lap, Replicate")
+        imgs_title.append("ksize = 7, Lap, sigma = 1")
+        imgs_title.append("ksize = 7, Lap, Constant")
+
+        show_images(imgs, imgs_title)
 
     #
     ########
@@ -1106,16 +1376,18 @@ if __name__ == "__main__":
     y dos valores distintos de sigma.
     """
 
-    # Se muestra la pirámide gaussiana sin bordes
-    imgs.append(show_pyr(generate_gaussian_pyr_imgs(img3)))
+    if 7 in ex:
 
-    # Se muestra la pirámide gaussiana con bordes
-    imgs.append(show_pyr(generate_gaussian_pyr_imgs(img3, border = cv2.BORDER_REPLICATE)))
+        # Se muestra la pirámide gaussiana sin bordes
+        imgs.append(show_pyr(generate_gaussian_pyr_imgs(img3)))
 
-    imgs_title.append("Gaussian Pyramid")
-    imgs_title.append("Gaussian Pyramid, Replicate")
+        # Se muestra la pirámide gaussiana con bordes
+        imgs.append(show_pyr(generate_gaussian_pyr_imgs(img3, border = cv2.BORDER_REPLICATE)))
 
-    show_images(imgs, imgs_title)
+        imgs_title.append("Gaussian Pyramid")
+        imgs_title.append("Gaussian Pyramid, Replicate")
+
+        show_images(imgs, imgs_title)
 
     #
     ########
@@ -1134,16 +1406,18 @@ if __name__ == "__main__":
     de bordes y dos valores distintos de sigma.
     """
 
-    # Se muestra la pirámide gaussiana sin bordes
-    imgs.append(show_pyr(generate_laplacian_pyr_imgs(img3, sigma = 0)))
+    if 8 in ex:
 
-    # Se muestra la pirámide gaussiana con bordes
-    imgs.append(show_pyr(generate_laplacian_pyr_imgs(img3, sigma = 1, border = cv2.BORDER_REPLICATE)))
+        # Se muestra la pirámide gaussiana sin bordes
+        imgs.append(show_pyr(generate_laplacian_pyr_imgs(img3, sigma = 0)))
 
-    imgs_title.append("Laplacian Pyramid")
-    imgs_title.append("Laplacian Pyramid, Replicate")
+        # Se muestra la pirámide gaussiana con bordes
+        imgs.append(show_pyr(generate_laplacian_pyr_imgs(img3, sigma = 1, border = cv2.BORDER_REPLICATE)))
 
-    show_images(imgs, imgs_title)
+        imgs_title.append("Laplacian Pyramid")
+        imgs_title.append("Laplacian Pyramid, Replicate")
+
+        show_images(imgs, imgs_title)
 
     #
     ########
@@ -1168,20 +1442,22 @@ if __name__ == "__main__":
     a partir de las parejas de imágenes.
     """
 
-    # Se generan las imágenes con frecuencias bajas y altas
-    img_low, img_high = generate_low_high_imgs(img3, img4, 5, 1)
+    if 9 in ex:
 
-    # Se muestra la imagen con frecuencias bajas
-    imgs.append(img_low)
+        # Se generan las imágenes con frecuencias bajas y altas
+        img_low, img_high = generate_low_high_imgs(img3, img4, 5, 1)
 
-    # Se muestra la imagen con frecuencias altas
-    imgs.append(img_high)
+        # Se muestra la imagen con frecuencias bajas
+        imgs.append(img_low)
 
-    # Se añaden los títulos a las imágenes
-    imgs_title.append("Low")
-    imgs_title.append("High")
+        # Se muestra la imagen con frecuencias altas
+        imgs.append(img_high)
 
-    show_images(imgs, imgs_title)
+        # Se añaden los títulos a las imágenes
+        imgs_title.append("Low")
+        imgs_title.append("High")
+
+        show_images(imgs, imgs_title)
 
     #
     ########
@@ -1199,8 +1475,10 @@ if __name__ == "__main__":
     una misma ventana.
     """
 
-    # Se muestran las imágenes
-    show_hybrid(img3, img4, 7, 1)
+    if 10 in ex:
+
+        # Se muestran las imágenes
+        show_hybrid(img3, img4, 7, 1)
 
     #
     ########
@@ -1213,14 +1491,189 @@ if __name__ == "__main__":
     Realizar la composición con al menos 3 de las parejas de imágenes
     """
 
-    show_hybrid(img3, img4, 7, 1)
+    if 11 in ex:
 
-    show_hybrid(img2, img1, 7, 3)
+        show_hybrid(img3, img4, 7, 1)
 
-    show_hybrid(img6, img5, 3, 3)
+        show_hybrid(img2, img1, 7, 3)
+
+        show_hybrid(img6, img5, 3, 3)
+
+    #
+    ########
+
+    #
+    ############################################################################
+
+    ############################################################################
+    # Bonus
+    #
+
+    ########
+    # Bonus 1
+    #
+
+    """
+    Cálculo del vector máscara Gaussiano. Implementar una función que tomando
+    sigma como parámetro de entrada devuelva una máscara de convolución 1D
+    representativa de dicha función.
+    """
+
+    if 12 in ex:
+
+        sigma = 3
+
+        # Se muestra la máscara Gaussiana calculada con la que devuelve
+        # cv2.getGaussianKernel() para comprobar que son iguales
+        ggk_1 = get_gaussian_kernel(sigma)
+        print("Función creada:\n", ggk_1)
+
+        ggk_2 = cv2.getGaussianKernel(6*sigma+1, sigma)
+        print("cv2.getGaussianKernel():\n", ggk_2)
+
+    #
+    ########
+
+    ########
+    # Bonus 2
+    #
+
+    """
+    Implementar una función que calcule la convolución de un vector señal 1D
+    con un vector-máscara de longitud inferior al de la señal usando condiciones
+    de contorno reflejada. La salida será un vector de igual longitud que el
+    vector señal de entrada.
+    """
+
+    if 13 in ex:
+
+        sigma = 5
+
+        # Se visualiza la función de convolución propia
+        f2d_1 = filter_2d(img3[0, :], get_gaussian_kernel(sigma))
+        print(f2d_1)
+
+        # Se visualiza la función de convolución de OpenCV con los mismos datos
+        # que se han utilizado para la función propia
+        f2d_2 = cv2.filter2D(img3[0, :], -1, get_gaussian_kernel(sigma), borderType=cv2.BORDER_REFLECT)
+        print(f2d_2)
+
+    #
+    ########
+
+    ########
+    # Bonus 3
+    #
+
+    """
+    Implementar una función que tomando como entrada una imagen y el valor de
+    sigma calcula la convolución de dicha imagen con una máscara Gaussiana 2D.
+    Utilizar las funciones utilizadas en los dos bonus anteriores.
+    """
+
+    if 14 in ex:
+
+        # Se ha adaptado la función del apartado C (convolution_c()) para que
+        # si recibe True como parámetro "own", utilice las funciones
+        # implementadas en los Bonus 1 y 2.
+        # Para comprobar que es correcto (de manera aproximada y visual, ya que
+        # en los Bonus 1 y 2 se ha comprobado que el cálculo es similar) se
+        # visualizan dos imágenes alisadas con sigma  = 7.
+        sigma = 7
+
+        # Se aplica convolución a la tercera imagen y se muestran los resultados
+        imgs.append(img3)
+        imgs.append(convolution_c(img3, sigma=sigma))
+        imgs.append(convolution_c(img3, sigma=sigma, own = True))
+
+        # Se modifican los nombres a las imágenes creadas
+        imgs_title.append("Original")
+        imgs_title.append("Sigma = 7, OpenCV")
+        imgs_title.append("Sigma = 7, Own")
+
+        show_images(imgs, imgs_title)
+
+    #
+    ########
+
+    ########
+    # Bonus 4
+    #
+
+    """
+    Construir una pirámide Gaussiana de al menos 5 niveles con las imágenes
+    híbridas calculadas en el apartado anterior. Mostrar los distintos niveles
+    de la pirámide en un único canvas e interpretar el resultado. Usar
+    implementaciones propias de todas las funciones usadas.
+    """
+
+    if 15 in ex:
+
+        # Se indica que los cálculos se realizan de manera manualmente
+        own = True
+
+        # Se indica el número de niveles que se quiere que se tengan las
+        # pirámides
+        n = 5
+
+        # Se añaden las imágenes para mostrarlas.
+
+        # Se añade la original
+        imgs.append(img3)
+
+        # Se añade la reducida con cv2.pyrDown()
+        imgs.append(cv2.pyrDown(img3))
+
+        # Se añade la reducida con la función propia
+        imgs.append(pyr_down(img3, 1, own = own))
+
+        # Se añaden los nombres a las imágenes creadas
+        imgs_title.append("Original")
+        imgs_title.append("pyrDown OpenCV")
+        imgs_title.append("pyr_down Own")
+
+        # Se muestran
+        show_images(imgs, imgs_title)
+
+        # Se vacían las listas con las imágenes y los nombres
+        imgs.clear()
+        imgs_title.clear()
+
+        # Se calculan las tres imágenes híbridas del apartado anterior
+        # utilizando las funciones propias, se añaden las tres imágenes híbridas
+        # calculadas en forma de pirámide con sus títulos correspondientes y se
+        # visualizan (por separado)
+        hybrid1 = generate_low_high_hybrid_imgs(img3, img4, 7, 1, own = own)[2]
+        imgs.append(show_pyr(generate_gaussian_pyr_imgs(hybrid1, n, sigma_down = 1, own = own)))
+        imgs_title.append("Hybrid1 Gaussian Pyramid Own")
+
+        # Se muesta la primera pirámide híbrida
+        show_images(imgs, imgs_title)
+
+        # Se vacían las listas con las imágenes y los nombres
+        imgs.clear()
+        imgs_title.clear()
+
+        hybrid2 = generate_low_high_hybrid_imgs(img2, img1, 7, 3, own = own)[2]
+        imgs.append(show_pyr(generate_gaussian_pyr_imgs(hybrid2, n, sigma_down = 1, own = own)))
+        imgs_title.append("Hybrid2 Gaussian Pyramid Own")
+
+        # Se muesta la segunda pirámide híbrida
+        show_images(imgs, imgs_title)
+
+        # Se vacían las listas con las imágenes y los nombres
+        imgs.clear()
+        imgs_title.clear()
+
+        hybrid3 = generate_low_high_hybrid_imgs(img6, img5, 3, 3, own = own)[2]
+        imgs.append(show_pyr(generate_gaussian_pyr_imgs(hybrid3, n, sigma_down = 1, own = own)))
+        imgs_title.append("Hybrid3 Gaussian Pyramid Own")
+
+        # Se muesta la tercera pirámide híbrida
+        show_images(imgs, imgs_title)
 
     #
     ########
 
 #
-###############################################################################
+################################################################################
