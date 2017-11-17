@@ -41,6 +41,13 @@ cmap = cv2.COLOR_RGB2GRAY
 # Esquema de color que se utiliza por defecto en plt.imshow()
 plt.rcParams['image.cmap'] = 'gray'
 
+# Se indica que se muestren la longitud completa de las matrices
+np.set_printoptions(threshold=np.nan)
+
+# Se inicializa SIFT
+orb = cv2.ORB_create()
+sift = cv2.xfeatures2d.SIFT_create()
+
 #
 ################################################################################
 
@@ -163,6 +170,275 @@ def show_images(imgs, names = list(), cols = num_cols, title = ""):
     # Se visualiza la tabla con todas las imágenes
     plt.show()
 
+def convolution_b(img, sigma, mask = -1, border = -1):
+    """
+
+    Dada una imagen (img), realiza una convolución con máscara gaussiana. El
+    tamaño de la máscara por defecto se calcula a partir del sigma recibido,
+    como 6*sigma+1. Esto es debido a que la medida más óptima es crear un
+    intervalo de 3*sigma por cada lado, lo que hace que se tenga 6*sigma. Para
+    no dejar sin contar el punto intermedio se suma 1, lo que termina resultando
+    6*sigma+1.
+    Se permite especificar una máscara determinada.
+    Se puede indicar un borde, que por defecto está deshabilitado.
+
+    -------------------
+    Opciones para el borde:
+    - cv2.BORDER_REPLICATE
+    - cv2.BORDER_REFLECT
+    - cv2.BORDER_REFLECT_101
+    - cv2.BORDER_WRAP
+    - cv2.BORDER_CONSTANT
+    -------------------
+
+    Devuelve la imagen con la transformación realizada.
+
+    """
+
+    # Opciones para el borde:
+    # - BORDER_REPLICATE
+    # - BORDER_REFLECT
+    # - BORDER_REFLECT_101
+    # - BORDER_WRAP
+    # - BORDER_CONSTANT
+
+    # Se comprueba si no se ha recibido la máscara. En el caso de no recibirla
+    # se le asigna el valor por defecto 6*sigma+1
+    if mask == -1:
+        mask = 6*sigma+1
+
+    # Si no se recibe ningún borde, la convolución será por defecto. En caso de
+    # recibirlo, se le indica por parámetro el especificado
+    if border == -1:
+        img = cv2.GaussianBlur(img, (mask, mask), sigma)
+    else:
+        img = cv2.GaussianBlur(img, (mask, mask), sigma, borderType = border)
+
+    # Se devuelve la imagen con la convolución realizada
+    return img
+
+def convolution_c(img , kernel_x = None, kernel_y = None, sigma = 0, border = cv2.BORDER_DEFAULT, normalize = True, own = False):
+    """
+
+    Dada una imagen (img) y dos núcleos (kernel_x, kernel_y) realiza una
+    convolución de la imagen utilizando dichos núcleos.
+    Se aplicará sucesivamente el núcleo por todas las filas de la imagen y con
+    esta transformación se vuelve a aplicar a todas las columnas.
+    Si se recibe un kernel_x "None", se extrae el kernel a través de la
+    función cv2.getGaussianKernel().
+    Si se recibe un kernel_y "None", será el mismo kernel ya calculado en
+    kernel_x.
+    Se puede indicar un borde, que por defecto está deshabilitado. Nota: si se
+    utiliza la propia función de convolución añadida a partir del Bonus 2, la
+    opción de borde no se contempla al utilizarse por defecto un borde
+    reflejado.
+    Permite la opción de normalizar, que por defecto está activa. Se le puede
+    enviar el parámetro normalize = False para que no la haga.
+    En el Bonus 2 se desarrolla la propia función de convolución y se adapta
+    en este apartado (ya que se utiliza para el resto de práctica) para poder
+    utilizarla. El parámetro "own" indica si se utiliza o no la propia función
+    de convolución. Por defecto no se utiliza.
+
+    -------------------
+    Opciones para el borde:
+    - cv2.BORDER_REPLICATE
+    - cv2.BORDER_REFLECT
+    - cv2.BORDER_REFLECT_101
+    - cv2.BORDER_WRAP
+    - cv2.BORDER_CONSTANT
+    -------------------
+
+    Devuelve la imagen con la transformación realizada.
+
+    """
+
+    # Si se modifican los valores de img, se verán reflejados en el resto de
+    # imágenes que hagan uso de la imagen base. Para evitar esto, se hace un
+    # copiado en el que no es por referencia
+    img = copy.deepcopy(img)
+
+    # Se comprueba si se calcula el kernel
+    if kernel_x is None:
+        kernel_x = cv2.getGaussianKernel(6*sigma+1, sigma)
+
+    # Se comprueba si se calcula el kernel_y
+    if kernel_y is None:
+        kernel_y = kernel_x
+
+    # Se obtiene el número de filas y columnas que tiene la imagen. La función
+    # shape devuelve también los canales siempre que la imagen no esté en
+    # escala de grises, por lo que se comprueba cuantos valores devuelve la
+    # función y en base a ello se guardan en dos o en tres variables (para
+    # evitar errores de ejecución)
+    shape = img.shape
+
+    # Para no tener error en el ámbito de las filas y las columnas se declaran
+    # en este punto
+    # También se pueden obtener las filas como len(img) y las columnas como
+    # len(img[0])
+    rows = 0
+    cols = 0
+
+    # Si la imagen está en escala de grises devuelve dos valores
+    if len(shape) == 2:
+        rows, cols = shape
+
+    # Si la imagen tiene un esquema de color devuelve tres valores
+    elif len(shape) == 3:
+        rows, cols, channels = shape
+
+    # Es posible utilizar la función cv2.filter2D() sin tener en cuenta los
+    # canales de la imagen, ya que esta función internamente se encarga de su
+    # procesamiento.
+
+    # Se recorren las filas de la imagen haciendo la convolución
+    for i in range(rows):
+
+        # Se modifica la fila "i" con la convolución, indicando la fila "i",
+        # el núcleo que se quiere utilizar y la profundidad por defecto de la
+        # imagen.
+        # La fila de una imagen es una lista (vector) con "cols" enteros. El
+        # resultado de aplicar filter2D devuelve una lista de "cols" listas,
+        # por lo que al hacer la asignación da error. Se debe guardar el
+        # resultado de hacer convolución y más tarde transformar la lista de
+        # listas en una lista de enteros.
+
+        ####
+        # Ampliación Bonus 2
+        #
+
+        # A partir del Bonus 2, la función de convolución es propia, por lo que
+        # en este punto se indica si se utiliza la propia o cv2.filter2D().
+        if own:
+
+            # La función de convolución propia devuelve una estructura
+            # diferente a cv2.filter2D(). cv2.filter2D() devuelve una lista de
+            # listas, la función de convolución propia devuelve una lista con
+            # todos los elementos. El contenido de ambas es el mismo.
+            img[i, :] = filter_2d(img[i, :], kernel_x)
+
+        # Si no se utiliza la propia, se utiliza cv2.filter2D
+        else:
+
+            resConv = cv2.filter2D(img[i, :], -1, kernel_x, borderType=border)
+
+            # Se guarda la lista de enteros creada en su fila correspondiente.
+            # Como cv2.filter2D devuelve una lista de listas, de este modo se
+            # convierte a lista de valores y se asigna a la fila correspondiente
+            img[i, :] = [sublist[0] for sublist in resConv]
+
+        #
+        ####
+
+    # Se recorren las columnas de la imagen haciendo la convolución
+    for i in range(cols):
+
+        # Se modifica la columna "i" con la convolución, indicando la columna
+        # "i", el núcleo que se quiere utilizar y la profundidad por defecto de
+        # la imagen
+        # La columna de una imagen es una lista (vector) con "rows" enteros. El
+        # resultado de aplicar filter2D devuelve una lista de "rows" listas,
+        # por lo que al hacer la asignación da error. Se debe guardar el
+        # resultado de hacer convolución y más tarde transformar la lista de
+        # listas en una lista de enteros.
+
+        ####
+        # Ampliación Bonus 2
+        #
+
+        # A partir del Bonus 2, la función de convolución es propia, por lo que
+        # en este punto se indica si se utiliza la propia o cv2.filter2D().
+        if own:
+
+            # La función de convolución propia devuelve una estructura
+            # diferente a cv2.filter2D(). cv2.filter2D() devuelve una lista de
+            # listas, la función de convolución propia devuelve una lista con
+            # todos los elementos. El contenido de ambas es el mismo.
+            img[:, i] = filter_2d(img[:, i], kernel_y)
+
+        # Si no se utiliza la propia, se utiliza cv2.filter2D
+        else:
+
+            resConv = cv2.filter2D(img[:, i], -1, kernel_y, borderType=border)
+
+            # Se guarda la lista de enteros creada en su fila correspondiente.
+            # Como cv2.filter2D devuelve una lista de listas, de este modo se
+            # convierte a lista de valores y se asigna a la fila correspondiente
+            img[:, i] = [sublist[0] for sublist in resConv]
+
+        #
+        ####
+
+    # Se normalizan los resultados calculados
+    if normalize:
+        cv2.normalize(img, img, 0, 255, cv2.NORM_MINMAX)
+
+    # Se devuelve la imagen con la convolución realizada
+    return img
+
+def convolution_d(img , kernel_x = None, kernel_y = None, ksize = 3, sigma = 0, border = cv2.BORDER_DEFAULT, dx = 1, dy = 1, own = False):
+    """
+
+    Dada una imagen (img), realiza convolución con núcleo de primera derivada
+    de tamaño ksize. Si se recibe un sigma, hace alisamiento con dicho sigma.
+    Se puede indicar un borde, que por defecto está deshabilitado.
+    Si se establece "own" a True utiliza la función de convolución propia.
+
+    -------------------
+    Opciones para el borde:
+    - cv2.BORDER_REPLICATE
+    - cv2.BORDER_REFLECT
+    - cv2.BORDER_REFLECT_101
+    - cv2.BORDER_WRAP
+    - cv2.BORDER_CONSTANT
+    -------------------
+
+    Devuelve dos imágenes con la convolución con respecto a la x y con respecto
+    a la y.
+
+    """
+
+    # Antes de hacer la convolución, se alisa para evitar ruido.
+    if sigma > 0:
+        img = convolution_c(img, sigma = sigma, own = own)
+
+    # Si se modifican los valores de img, se verán reflejados en el resto de
+    # imágenes que hagan uso de la imagen base. Para evitar esto, se hace un
+    # copiado en el que no es por referencia
+    img_x = copy.deepcopy(img)
+    img_y = copy.deepcopy(img)
+
+    # Se comprueba si se calcula el kernel_x
+    if kernel_x is None:
+
+        # Se calcula el kernel de la primera derivada con respecto a x.
+        kernel_x = cv2.getDerivKernels(dx, 0, ksize)
+
+        # Para aplicar convolución y no correlación se debe dar la vuelta al
+        # kernel. Indicando -1 da la vuelta en el eje x e y, como solo tiene
+        # uno, es correcto.
+        #kernel_x = cv2.flip(kernel_x, -1)
+
+    # Se comprueba si se calcula el kernel_y
+    if kernel_y is None:
+
+        # Se calcula el kernel de la primera derivada con respecto a y.
+        kernel_y = cv2.getDerivKernels(0, dy, ksize)
+
+        # Para aplicar convolución y no correlación se debe dar la vuelta al
+        # kernel. Indicando -1 da la vuelta en el eje x e y, como solo tiene
+        # uno, es correcto.
+        #kernel_y = cv2.flip(kernel_y, -1)
+
+    # Se hace la convolución de la 1º derivada con respecto a x.
+    img_x = convolution_c(img_x, kernel_x[0], kernel_x[1], border = border, own = own)
+
+    # Se hace la convolución de la 1º derivada con respecto a y.
+    img_y = convolution_c(img_y, kernel_y[0], kernel_y[1], border = border, own = own)
+
+    # Se devuelve la imagen con la convolución realizada
+    return img_x, img_y
+
 def show_pyr(imgs):
     """
 
@@ -220,7 +496,7 @@ def show_pyr(imgs):
     return img
 
 def generate_gaussian_pyr_imgs(img, n = 4, sigma = 0, sigma_down = 1, \
-                                                border = cv2.BORDER_DEFAULT):
+                                border = cv2.BORDER_DEFAULT, resize = False):
     """
 
     Función que, a partir de una imagen, genera n imágenes (por defecto, 4) de
@@ -243,6 +519,9 @@ def generate_gaussian_pyr_imgs(img, n = 4, sigma = 0, sigma_down = 1, \
     - cv2.BORDER_CONSTANT
     -------------------
 
+    Si se indica que se redimensione (resize = True) devolverá todas las
+    imágenes del tamaño de la imagen original.
+
     Devuelve una lista con n+1 imágenes, donde la primera es la original, la
     segunda es la mitad del tamaño de la primera, etc.
 
@@ -258,12 +537,79 @@ def generate_gaussian_pyr_imgs(img, n = 4, sigma = 0, sigma_down = 1, \
     # Se añade la imagen original a la lista
     imgs.append(img)
 
-    # Se añaden tantas imágenes como se haya indicado
-    for i in range(n):
+    if resize:
 
-        imgs.append(cv2.pyrDown(imgs[i], borderType=border))
+        # Se añaden tantas imágenes como se haya indicado
+        for i in range(n):
+            imgs.append(cv2.pyrUp(cv2.pyrDown(imgs[i], borderType=border), \
+                        borderType=border))
+
+    else:
+
+        # Se añaden tantas imágenes como se haya indicado
+        for i in range(n):
+            imgs.append(cv2.pyrDown(imgs[i], borderType=border))
 
     return imgs
+
+def filter_2d(signal, kernel):
+    """
+    Se encarga de hacer convolución entre un vector y un kernel 1D que se
+    recibe por parámetro.
+    El resultado es un vector del mismo tamaño que el vector señal recibido con
+    la convolución realizada.
+    """
+
+    # Para realizar la convolución a todo el vector se debe ampliar lo
+    # suficiente por los extremos para poder aplicar el kernel a todas las
+    # posiciones.
+
+    # Se guarda la longitud inicial del vector señal y del kernel.
+    length_signal = len(signal)
+    length_kernel = len(kernel)
+
+    # Se guarda el tamaño que debe crecer en cada extremo. No interesa
+    # redondear, solo truncar para no añadir más espacio del necesario.
+    grow = (int)(length_kernel/2)
+
+    # Lo primero es ampliar el vector que se recibe para que el kernel pueda
+    # ser pasado por todas las posiciones.
+
+    # Se crea un array del tamaño que debe crecer signal.
+    l_init = np.ndarray(grow)
+    l_end = np.ndarray(grow)
+
+    # Se reflejan los valores iniciales de signal en el array que se concatena
+    # al inicio
+    l_init[:] = signal[grow-1::-1]
+
+    # Se reflejan los valores finales de signal en el array que se concatena al
+    # final
+    l_end[:] = signal[-1:-grow-1:-1]
+
+    # Se concatenan las listas creadas para hacer el espejo
+    new_signal = np.concatenate((l_init,signal, l_end))
+
+    # Al modificarse los valores del vector de entrada, se debe hacer una copia
+    # para no modificar la imagen original
+    conv = copy.deepcopy(signal)
+
+    # Se debe recorrer cada posición del vector señal. Se comprueba cada casilla
+    # del vector que tiene los bordes reflejados, de manera que se multiplica
+    # cada segmento del vector señal con el kernel.
+    # Cuando se termina la multiplicación, se deben sumar todos los valores
+    # calculados y esta suma será el nuevo valor de la posición por la que se
+    # está iterando
+    for i in range(length_signal):
+        res = 0
+
+        for j in range(length_kernel):
+            res += kernel[j] * new_signal[i+j]
+
+        conv[i] = np.array([res])
+
+    # Se devuelve el vector convolucionado
+    return conv
 
 #
 ################################################################################
@@ -284,8 +630,7 @@ def get_block_size(sigma = 1.5):
     6*1.5+1.
     """
 
-    #return int(6*sigma+1)
-    return 3
+    return int(6*sigma+1)
 
 def get_ksize(sigma = 1):
     """
@@ -295,8 +640,7 @@ def get_ksize(sigma = 1):
     6*1+1.
     """
 
-    #return int(6*sigma+1)
-    return 3
+    return int(6*sigma+1)
 
 def selection_criteria_harris(l1, l2, k = 0.04):
     """
@@ -364,7 +708,6 @@ def not_max_suppression_harris(harris, threshold, env):
     # Lista con las coordenadas de los máximos locales y el valor que tiene
     # cada uno
     max_points = []
-    max_points_values = []
 
     # Se recorre cada posición de la matriz de puntos Harris (se ignora el
     # borde creado manualmente)
@@ -396,22 +739,22 @@ def not_max_suppression_harris(harris, threshold, env):
                                 col_insp_init:col_insp_end+1] = 0
 
                     # Se guarda el punto actual real como máximo local
-                    max_points.append((row-env, col-env))
-                    max_points_values.append(harris[row-env, col-env])
+                    max_points.append([(row-env, col-env), \
+                                            harris[row-env, col-env]])
 
     # Se devuelven las coordenadas de los puntos máximos locales y su valor
-    return max_points, max_points_values
+    return max_points
 
 def get_harris(img, sigma_block_size = 1.5, sigma_ksize = 1, k = 0.04, \
-                threshold = 3, env = 3, n = 500):
+                threshold = -10, env = 5, scale = -1):
     """
     Obtiene una lista potencial de los puntos Harris de una imagen (img).
     Los valores de los parámetros utilizados dependen del sigma que se
     recibe (sigma_block_size, sigma_ksize).
     Recibe (k), (threshol) y (env) utilizados en las funciones creadas para la
     obtención de los puntos.
-    Se puede especificar el número máximo de puntos Harris (n) que se quieren
-    mostrar, siendo elegidos los (n) de mayor valor.
+    Se puede indicar la escala (scale) para devolver la escala a la que
+    pertenecen los puntos generados junto a estos.
     """
 
     # Se obtiene block_size y ksize
@@ -437,25 +780,48 @@ def get_harris(img, sigma_block_size = 1.5, sigma_ksize = 1, k = 0.04, \
     harris = selection_criteria_harris(l1, l2, k)
 
     # Se suprimen los valores no máximos
-    max_points, max_points_values = not_max_suppression_harris(harris, \
-                                                                threshold, env)
+    max_points = not_max_suppression_harris(harris, threshold, env)
+
+    # Se guarda la longitud para recorrer todos los puntos y añadir la escala
+    length = len(max_points)
+
+    # Se añade la escala a cada punto
+    for i in range(length):
+        max_points[i].append(scale)
+
+    # Se devuelven los puntos
+    return max_points
+
+def get_best_harris(points, n = 1000):
+    """
+    Recibe una lista con los puntos Harris obtenidos formados por:
+    (coordenadas (x, y), valor Harris, escala)
+    Se puede especificar el número máximo de puntos Harris (n) que se quieren
+    devolver, siendo elegidos los (n) de mayor valor.
+    """
+
+    # Se consigue una lista con los valores de los puntos
+    values = [point[1] for point in points]
 
     # Se ordenan los puntos por el valor Harris de mayor a menor, guardando solo
-    # los n (500) puntos con valor más alto
-    index_max_points_sorted = np.argsort(max_points_values)[::-1]
-    index_max_points_sorted = index_max_points_sorted[0:n]
+    # los n (1000) puntos con valor más alto
+    index_values_sorted = np.argsort(values)[::-1]
+    index_values_sorted = index_values_sorted[0:n]
 
-    # Se guardan los puntos que se quieren mostrar rodeados por el círculo
-    points_to_show = [max_points[i] for i in index_max_points_sorted]
+    # Se devuelven los puntos seleccionados
+    return [points[i] for i in index_values_sorted]
 
-    # Se devuelven los puntos que se quieren mostrar
-    return points_to_show
 
-def show_circles(img, points, sigma = 1):
+def show_circles(img, points, radius = 2, orientations = False, color1 = 0, \
+                    color2 = 255):
     """
     Dada una imagen (img), pinta sobre ella unos círculos cuyo centro se
     encuentra en unas coordenadas dadas por unos puntos (points).
-    El radio del punto viene dado por sigma (sigma).
+    Estos puntos deben tener cuatro elementos: coordenadas (x, y), valor Harris,
+    la escala (utilizada para el radio del círculo) y la orientación.
+    Se puede indicar un radio (radius) para el punto y la línea.
+    color1 indica el color de los puntos.
+    color2 indica el color de las líneas de las orientaciones.
     """
 
     # Se hace un copiado de la imagen para no modificar la original
@@ -464,8 +830,28 @@ def show_circles(img, points, sigma = 1):
     # En points se tienen las coordenadas de los puntos que se van a rodear con
     #un círculo
     for point in points:
-        cv2.circle(img, center=(point[1], point[0]), radius=sigma, color=1, \
-                    thickness=2)
+        cv2.circle(img, center=(point[0][1], point[0][0]), \
+                    radius=point[2]*radius, color=color1, thickness=2)
+
+    # Si se indica que se dibujen las orientaciones
+    if orientations:
+
+        # Se recorren todos los puntos
+        for point in points:
+
+            # Se transforma la orientación del punto en un ángulo dado
+            angle = point[3]/np.pi*180
+
+            # Se calcula el primer punto de la línea
+            pt1 = (point[0][1], point[0][0])
+
+            # Se calcula el segundo punto de la línea utilizando el ángulo y
+            # se debe multiplicar por el radio utilizado al mostrar el punto
+            pt2 = (int(point[0][1]+np.sin(angle)*point[2]*radius), \
+                    int(point[0][0]+np.cos(angle)*point[2]*radius))
+
+            # Se pinta la línea del punto actual
+            cv2.line(img, pt1, pt2, color2)
 
     # Se devuelve la imagen con los puntos
     return img
@@ -473,8 +859,116 @@ def show_circles(img, points, sigma = 1):
 #
 ########
 
+########
+# Sección B
+#
+
+def refine_harris_points(img, points, env = 5, zero_zone = -1, \
+    criteria = (cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER, 100, 0.001)):
+    """
+    Refina la posición de unos puntos (points) recibidos sobre una imagen (img)
+    teniendo en cuenta el tamaño de la ventana (env) utilizada en la obtención
+    de los puntos Harris.
+    Zero_zone indica la mitad del tamaño de la zona muerta que se queda en el
+    medio de la zona de búsqueda. Si se indica -1 no se le da tamaño.
+    """
+
+    # Se crea un array de numpy (requerido por la función cornerSubPix) con
+    # las coordenadas de los puntos que se quieren refinar
+    new_points = [point[0] for point in points]
+
+    # Se refinan los puntos (deben ser float)
+    cv2.cornerSubPix(img, np.float32(new_points), (env, env), \
+                        (zero_zone, zero_zone), criteria)
+
+    # Se modifican las coordenadas con los puntos refinados
+    for i, point in enumerate(new_points):
+        points[i][0] = point
+
+    return points
+
+#
+########
+
+########
+# Sección C
+#
+
+def get_orientations(img, points, sigma, own = True):
+    """
+    A partir de una imagen (img) y los puntos Harris calculados (points),
+    obtiene la orientación que tendrá cada uno de los puntos.
+    Se especifica un sigma (sigma) para aplicar antes de calcular las derivadas
+    un alisamiento con ese sigma.
+    Devuelve la orientación de cada punto.
+    """
+
+    # Se calculan las derivadas con respecto de x y de y de la imagen, aplicando
+    # antes un alisamiento definido por sigma
+    img_x, img_y = convolution_d(img, sigma = sigma, own = own)
+
+    # Para aplicar el arcotangente es necesario modificar la estructura del
+    # array de puntos de manera que existan dos filas (x, y) y tantas columnas
+    # como puntos se tengan, por lo que se hace la transpuesta.
+    new_points = np.array([point[0] for point in points]).T
+
+    # Se calcula la arcotangente de cada punto que devuelve la orientación que
+    # tendra dicho punto. Esa operación se realiza para todos los puntos que se
+    # tienen en el array
+    orientations = np.arctan2(img_x, img_y)[new_points[0], new_points[1]]
+
+    for point, orientation in zip(points, orientations):
+        point.append(orientation)
+
+    # Se devuelven los puntos con sus orientaciones
+    return points
+
+#
+########
+
+########
+# Sección D
+#
+
+def get_descriptors(img, keypoints):
+    """
+    Calcula los descriptores de los KeyPoints de la imagen y los devuelve junto
+    a los KeyPoints en formato cv2.KeyPoint.
+    """
+
+    # Se convierte la imagen a enteros para que se puedan calcular los
+    # descriptores
+    img = np.uint8(img)
+
+    # De la lista con los puntos que se tenía, se crea otra lista con el tipo
+    # de datos cv2.KeyPoint para poder utilizar sift.compute()
+    keypoints = [cv2.KeyPoint(point[0][0], point[0][1], _size=point[2], \
+                    _angle=point[3]) for point in keypoints]
+
+    # Se calculan los descriptores
+    return sift.compute(img, keypoints)
+
+#
+########
+
 #
 ################################################################################
+
+################################################################################
+# Apartado 2
+#
+
+
+
+#
+################################################################################
+
+"""
+- Refinamiento: http://opencv-python-tutroals.readthedocs.io/en/latest/py_tutorials/py_feature2d/py_features_harris/py_features_harris.html
+-
+-
+-
+"""
 
 ################################################################################
 # Ejecuciones
@@ -488,7 +982,19 @@ if __name__ == "__main__":
     ex = list()
 
     # 1.a:
-    ex.append(1)
+    #ex.append(1)
+
+    # 1.b:
+    #ex.append(2)
+
+    # 1.c:
+    #ex.append(3)
+
+    # 1.d:
+    #ex.append(4)
+
+    # 2:
+    ex.append(5)
 
     # Listas para la visualización de las imágenes
     imgs = []
@@ -524,21 +1030,279 @@ if __name__ == "__main__":
         # Se añade un título a la imagen
         imgs_title.append(img_title1)
 
-        # Se obtienen las imágenes de la pirámide Gaussiana
-        img_gauss = generate_gaussian_pyr_imgs(img1)
+        # Se obtienen las imágenes de la pirámide Gaussiana indicando que se
+        # mantenga el tamaño de la imagen original en las imágenes de los
+        # distintos niveles de la pirámide
+        img_gauss = generate_gaussian_pyr_imgs(img1, resize = True)
+
+        # Se crea la lista de puntos Harris que se van a mostrar
+        points = []
 
         # Se recorre cada imagen y se le calculan los puntos Harris
         for i, img in enumerate(img_gauss):
-            imgs.append(show_circles(img, get_harris(img)))
-            imgs_title.append("Harris Level "+str(i+1))
+            points = points + get_harris(img, scale = i+1)
+
+        # Se escogen los 1500 mejores
+        points500 = get_best_harris(points, 500)
+
+        # Se añade la imagen a la lista de imágenes
+        imgs.append(show_circles(img1, points500))
+
+        # Se añade un título a la imagen
+        imgs_title.append(img_title1+": 500 puntos")
+
+        # Cuando se tiene una lista con los puntos Harris en todas las escalas,
+        # se escogen los 1000 mejores
+        points1000 = get_best_harris(points, 1000)
+
+        # Se añade la imagen a la lista de imágenes
+        imgs.append(show_circles(img1, points1000))
+
+        # Se añade un título a la imagen
+        imgs_title.append(img_title1+": 1000 puntos")
+
+        # Se escogen los 1500 mejores
+        points1500 = get_best_harris(points, 1500)
+
+        # Se añade la imagen a la lista de imágenes
+        imgs.append(show_circles(img1, points1500))
+
+        # Se añade un título a la imagen
+        imgs_title.append(img_title1+": 1500 puntos")
 
         # Se muestran las imágenes que se leen inicialmente
-        show_images(imgs, imgs_title)
+        show_images(imgs, imgs_title, cols = 2)
 
         input(continue_text)
 
     #
     ########
+
+    # Se vacían las listas con las imágenes y los nombres
+    imgs.clear()
+    imgs_title.clear()
+
+    ########
+    # Sección B
+    #
+
+    """
+    Extraer los valores (cx, cy, escala) de cada uno de los puntos resultantes
+    en el apartado anterior y refinar su posición espacial a nivel sub-pixel
+    usando la función de OpenCV cornerSubPix() con la imagen del nivel de
+    pirámide correspondiente. Actualizar los datos (cx, cy, escala) de cada uno
+    de los puntos encontrados.
+    """
+
+    if 2 in ex:
+
+        # Se añade la imagen original a la lista de imágenes
+        imgs.append(img1)
+
+        # Se añade un título a la imagen
+        imgs_title.append(img_title1)
+
+        # Se obtienen las imágenes de la pirámide Gaussiana indicando que se
+        # mantenga el tamaño de la imagen original en las imágenes de los
+        # distintos niveles de la pirámide
+        img_gauss = generate_gaussian_pyr_imgs(img1, resize = True)
+
+        # Se crea la lista de puntos Harris que se van a mostrar
+        points = []
+
+        # Se recorre cada imagen y se le calculan los puntos Harris
+        for i, img in enumerate(img_gauss):
+            points = points + get_harris(img, scale = i+1)
+
+        points = refine_harris_points(img1, points)
+
+        # Se escogen los 500 mejores
+        points500 = get_best_harris(points, 500)
+
+        # Se añade la imagen a la lista de imágenes
+        imgs.append(show_circles(img1, points500))
+
+        # Se añade un título a la imagen
+        imgs_title.append(img_title1+": 500 puntos")
+
+        # Cuando se tiene una lista con los puntos Harris en todas las escalas,
+        # se escogen los 1000 mejores
+        points1000 = get_best_harris(points, 1000)
+
+        # Se añade la imagen a la lista de imágenes
+        imgs.append(show_circles(img1, points1000))
+
+        # Se añade un título a la imagen
+        imgs_title.append(img_title1+": 1000 puntos")
+
+        # Se escogen los 1500 mejores
+        points1500 = get_best_harris(points, 1500)
+
+        # Se añade la imagen a la lista de imágenes
+        imgs.append(show_circles(img1, points1500))
+
+        # Se añade un título a la imagen
+        imgs_title.append(img_title1+": 1500 puntos")
+
+        # Se muestran las imágenes que se leen inicialmente
+        show_images(imgs, imgs_title, cols = 2)
+
+        input(continue_text)
+
+    #
+    ########
+
+    # Se vacían las listas con las imágenes y los nombres
+    imgs.clear()
+    imgs_title.clear()
+
+    ########
+    # Sección C
+    #
+
+    """
+    Calcular la orientación relevante de cada punto Harris usando el
+    arcotangente del gradiente en cada punto
+    """
+
+    if 3 in ex:
+
+        # Se añade la imagen original a la lista de imágenes
+        imgs.append(img1)
+
+        # Se añade un título a la imagen
+        imgs_title.append(img_title1)
+
+        # Se obtienen las imágenes de la pirámide Gaussiana indicando que se
+        # mantenga el tamaño de la imagen original en las imágenes de los
+        # distintos niveles de la pirámide
+        img_gauss = generate_gaussian_pyr_imgs(img1, resize = True)
+
+        # Se crea la lista de puntos Harris que se van a mostrar
+        points = []
+
+        # Se recorre cada imagen y se le calculan los puntos Harris
+        for i, img in enumerate(img_gauss):
+            points = points + get_harris(img, scale = i+1)
+
+        # Se escogen los 500 mejores
+        points500 = get_best_harris(points, 500)
+
+        # Se actualizan los puntos con las orientaciones que tienen
+        points500 = get_orientations(img1, points500, sigma=5, own = False)
+
+        # Se añade la imagen a la lista de imágenes
+        imgs.append(show_circles(img1, points500, orientations = True))
+
+        # Se añade un título a la imagen
+        imgs_title.append(img_title1+": 500 puntos")
+
+        # Se escogen los 1000 mejores
+        points1000 = get_best_harris(points, 1000)
+
+        # Se actualizan los puntos con las orientaciones que tienen
+        points1000 = get_orientations(img1, points1000, sigma=5, own = False)
+
+        # Se añade la imagen a la lista de imágenes
+        imgs.append(show_circles(img1, points1000, orientations = True))
+
+        # Se añade un título a la imagen
+        imgs_title.append(img_title1+": 1000 puntos")
+
+        # Se escogen los 1500 mejores
+        points1500 = get_best_harris(points, 1500)
+
+        # Se actualizan los puntos con las orientaciones que tienen
+        points1500 = get_orientations(img1, points1500, sigma=5, own = False)
+
+        # Se añade la imagen a la lista de imágenes
+        imgs.append(show_circles(img1, points1500, orientations = True))
+
+        # Se añade un título a la imagen
+        imgs_title.append(img_title1+": 1500 puntos")
+
+        # Se muestran las imágenes que se leen inicialmente
+        show_images(imgs, imgs_title, cols = 2)
+
+        input(continue_text)
+
+    #
+    ########
+
+    # Se vacían las listas con las imágenes y los nombres
+    imgs.clear()
+    imgs_title.clear()
+
+    ########
+    # Sección D
+    #
+
+    """
+    Usar el vector de keyPoint extraidos para calcular los descriptores SIFT
+    asociados a cada punto
+    """
+
+    if 4 in ex:
+
+        # Se obtienen las imágenes de la pirámide Gaussiana indicando que se
+        # mantenga el tamaño de la imagen original en las imágenes de los
+        # distintos niveles de la pirámide
+        img_gauss = generate_gaussian_pyr_imgs(img1, resize = True)
+
+        # Se crea la lista de puntos Harris que se van a mostrar
+        points = []
+
+        # Se recorre cada imagen y se le calculan los puntos Harris
+        for i, img in enumerate(img_gauss):
+            points = points + get_harris(img, scale = i+1)
+
+        # Se escogen los 500 mejores
+        points500 = get_best_harris(points, 500)
+
+        # Se actualizan los puntos con las orientaciones que tienen
+        points500 = get_orientations(img1, points500, sigma=5, own = False)
+
+        # Se obtienen los keypoints en formato cv2.KeyPoint junto con sus
+        # descriptores
+        keypoints, descriptors = get_descriptors(img1, points500)
+
+        # Se visualizan los descriptores calculados
+        print(descriptors)
+
+        input(continue_text)
+
+    #
+    ########
+
+    #
+    ############################################################################
+
+    ############################################################################
+    # Apartado 2
+    #
+
+    """
+    Una función que sea capaz de representar varias imágenes con sus títulos en
+    una misma ventana. Usar esta función en todos los demás apartados.
+    """
+
+    if 5 in ex:
+
+        # Se añade la imagen original a la lista de imágenes
+        imgs.append(img1)
+
+        # Se añade un título a la imagen
+        imgs_title.append(img_title1)
+
+
+
+        # Se muestran las imágenes que se leen inicialmente
+        show_images(imgs, imgs_title, cols = 2)
+
+        input(continue_text)
+
+    #
+    ############################################################################
 
     # Se vacían las listas con las imágenes y los nombres
     imgs.clear()
