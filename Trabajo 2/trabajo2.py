@@ -17,7 +17,9 @@ import cv2
 import numpy as np
 import copy
 import math
+import random
 from matplotlib import pyplot as plt
+from matplotlib import image as mpimg
 
 ################################################################################
 # Configuración general
@@ -38,9 +40,6 @@ num_cols = 3
 # Esquema de color que se utiliza por defecto para convertir las imágenes
 cmap = cv2.COLOR_RGB2GRAY
 
-# Esquema de color que se utiliza por defecto en plt.imshow()
-plt.rcParams['image.cmap'] = 'gray'
-
 # Se indica que se muestren la longitud completa de las matrices
 np.set_printoptions(threshold=np.nan)
 
@@ -57,7 +56,6 @@ sift = cv2.xfeatures2d.SIFT_create()
 
 def set_c_map(imgs, cmap = cv2.COLOR_RGB2BGR):
     """
-
     Asigna un esquema de color a todas las imágenes que se reciben.
 
     Si se recibe una lista, las imágenes verán reflejadas su nuevo esquema de
@@ -70,7 +68,6 @@ def set_c_map(imgs, cmap = cv2.COLOR_RGB2BGR):
     - cv2.COLOR_RGB2BGR (color)
     - cv2.COLOR_RGB2GRAY (escala de grises)
     - ...
-
     """
 
     # Se comprueba si el elemento que se recibe es una imagen o es una lista
@@ -93,28 +90,19 @@ def set_c_map(imgs, cmap = cv2.COLOR_RGB2BGR):
 
     return imgs
 
-def power_two(n):
+def show_images(imgs, names = list(), cols = num_cols, title = "", gray = True):
     """
-    Calcula el logaritmo en base 2 de un número, truncando los decimales
-    """
-    return int(math.log(n, 2))
-
-def next_power_two(n):
-    """
-    Calcula el siguiente número potencia de 2 de otro número recibido por
-    parámetro.
-    """
-    return pow(2, power_two(n)+1)
-
-def show_images(imgs, names = list(), cols = num_cols, title = ""):
-    """
-
     Dada una lista de imágenes (imgs) y una lista de nombres (names), muestra en
     una tabla todas estas imágenes con su nombre correspondiente.
     Por defecto, el número de columnas que se van a mostrar es 3.
     Por defecto, el título que acompaña a cada imagen es "".
-
     """
+
+    if gray:
+        # Esquema de color que se utiliza por defecto en plt.imshow()
+        plt.rcParams['image.cmap'] = 'gray'
+    else:
+        plt.rcParams['image.cmap'] = 'viridis'
 
     # Se guarda la cantidad de imágenes que se van a mostrar
     imgs_length = len(imgs)
@@ -145,7 +133,7 @@ def show_images(imgs, names = list(), cols = num_cols, title = ""):
 
         # La imagen se recibe con flotantes, por lo que se hace el cambio a
         # enteros
-        img = copy.deepcopy(img).astype(int)
+        #img = copy.deepcopy(img).astype(int)
 
         # Se indica el número de filas y columnas y la posición que ocupa la
         # imagen actual en esa tabla
@@ -172,7 +160,6 @@ def show_images(imgs, names = list(), cols = num_cols, title = ""):
 
 def convolution_b(img, sigma, mask = -1, border = -1):
     """
-
     Dada una imagen (img), realiza una convolución con máscara gaussiana. El
     tamaño de la máscara por defecto se calcula a partir del sigma recibido,
     como 6*sigma+1. Esto es debido a que la medida más óptima es crear un
@@ -192,7 +179,6 @@ def convolution_b(img, sigma, mask = -1, border = -1):
     -------------------
 
     Devuelve la imagen con la transformación realizada.
-
     """
 
     # Opciones para el borde:
@@ -219,7 +205,6 @@ def convolution_b(img, sigma, mask = -1, border = -1):
 
 def convolution_c(img , kernel_x = None, kernel_y = None, sigma = 0, border = cv2.BORDER_DEFAULT, normalize = True, own = False):
     """
-
     Dada una imagen (img) y dos núcleos (kernel_x, kernel_y) realiza una
     convolución de la imagen utilizando dichos núcleos.
     Se aplicará sucesivamente el núcleo por todas las filas de la imagen y con
@@ -378,7 +363,6 @@ def convolution_c(img , kernel_x = None, kernel_y = None, sigma = 0, border = cv
 
 def convolution_d(img , kernel_x = None, kernel_y = None, ksize = 3, sigma = 0, border = cv2.BORDER_DEFAULT, dx = 1, dy = 1, own = False):
     """
-
     Dada una imagen (img), realiza convolución con núcleo de primera derivada
     de tamaño ksize. Si se recibe un sigma, hace alisamiento con dicho sigma.
     Se puede indicar un borde, que por defecto está deshabilitado.
@@ -395,7 +379,6 @@ def convolution_d(img , kernel_x = None, kernel_y = None, ksize = 3, sigma = 0, 
 
     Devuelve dos imágenes con la convolución con respecto a la x y con respecto
     a la y.
-
     """
 
     # Antes de hacer la convolución, se alisa para evitar ruido.
@@ -439,66 +422,9 @@ def convolution_d(img , kernel_x = None, kernel_y = None, ksize = 3, sigma = 0, 
     # Se devuelve la imagen con la convolución realizada
     return img_x, img_y
 
-def show_pyr(imgs):
-    """
-
-    Función que muestra una serie de imágenes que recibe en una lista por
-    parámetro en forma de pirámide.
-    Como requisito para su correcto funcionamiento, las imágenes deben
-    decrementar su tamaño en la mitad a medida que ocupan una posición posterior
-    en la lista.
-
-    Devuelve una sola imagen con forma de pirámide donde se encuentran todas las
-    recibidas.
-
-    """
-
-    # Se crea una imagen inicialmente vacía que albergará todas las subimágenes
-    # que se reciben.
-    # El ancho de la imagen general será el ancho de la primera más el ancho
-    # de la segunda (que será la mitad de la primera).
-
-    # El ancho se calcula como len(img[0])+len(img[0])*0.5
-    shape = imgs[0].shape
-
-    height = shape[0]
-    width = shape[1]
-
-    # Se crea la imagen general con las medidas para que entren todas
-    img = np.zeros((height, width+math.ceil(width*0.5)))
-
-    # Se copia la primera imagen desde el punto de partida hasta el tamaño que
-    # tiene
-    img[0:height, 0:width] = imgs[0]
-
-    # Se guarda la posición desde donde deben comenzar las imágenes
-    init_col = width
-    init_row = 0
-
-    # Número de imágenes
-    num_imgs = len(imgs)
-
-    # Se recorren el resto de imágenes para colocarlas donde corresponde
-    for i in range(1, num_imgs):
-
-        # Se consigue el tamaño de la imagen actual
-        shape = imgs[i].shape
-
-        height = shape[0]
-        width = shape[1]
-
-        # Se hace el copiado de la imagen actual como se ha hecho con la primera
-        img[init_row:init_row+height, init_col:init_col+width] = imgs[i]
-
-        # Se aumenta el contador desde donde se colocará la siguiente imagen
-        init_row += height
-
-    return img
-
 def generate_gaussian_pyr_imgs(img, n = 4, sigma = 0, sigma_down = 1, \
                                 border = cv2.BORDER_DEFAULT, resize = False):
     """
-
     Función que, a partir de una imagen, genera n imágenes (por defecto, 4) de
     la mitad de tamaño cada vez.
     Para la generación de las imágenes se hace uso de la función cv2.pyrDown()
@@ -524,7 +450,6 @@ def generate_gaussian_pyr_imgs(img, n = 4, sigma = 0, sigma_down = 1, \
 
     Devuelve una lista con n+1 imágenes, donde la primera es la original, la
     segunda es la mitad del tamaño de la primera, etc.
-
     """
 
     # Antes de generar las imágenes, se alisa para evitar ruido.
@@ -552,70 +477,11 @@ def generate_gaussian_pyr_imgs(img, n = 4, sigma = 0, sigma_down = 1, \
 
     return imgs
 
-def filter_2d(signal, kernel):
-    """
-    Se encarga de hacer convolución entre un vector y un kernel 1D que se
-    recibe por parámetro.
-    El resultado es un vector del mismo tamaño que el vector señal recibido con
-    la convolución realizada.
-    """
-
-    # Para realizar la convolución a todo el vector se debe ampliar lo
-    # suficiente por los extremos para poder aplicar el kernel a todas las
-    # posiciones.
-
-    # Se guarda la longitud inicial del vector señal y del kernel.
-    length_signal = len(signal)
-    length_kernel = len(kernel)
-
-    # Se guarda el tamaño que debe crecer en cada extremo. No interesa
-    # redondear, solo truncar para no añadir más espacio del necesario.
-    grow = (int)(length_kernel/2)
-
-    # Lo primero es ampliar el vector que se recibe para que el kernel pueda
-    # ser pasado por todas las posiciones.
-
-    # Se crea un array del tamaño que debe crecer signal.
-    l_init = np.ndarray(grow)
-    l_end = np.ndarray(grow)
-
-    # Se reflejan los valores iniciales de signal en el array que se concatena
-    # al inicio
-    l_init[:] = signal[grow-1::-1]
-
-    # Se reflejan los valores finales de signal en el array que se concatena al
-    # final
-    l_end[:] = signal[-1:-grow-1:-1]
-
-    # Se concatenan las listas creadas para hacer el espejo
-    new_signal = np.concatenate((l_init,signal, l_end))
-
-    # Al modificarse los valores del vector de entrada, se debe hacer una copia
-    # para no modificar la imagen original
-    conv = copy.deepcopy(signal)
-
-    # Se debe recorrer cada posición del vector señal. Se comprueba cada casilla
-    # del vector que tiene los bordes reflejados, de manera que se multiplica
-    # cada segmento del vector señal con el kernel.
-    # Cuando se termina la multiplicación, se deben sumar todos los valores
-    # calculados y esta suma será el nuevo valor de la posición por la que se
-    # está iterando
-    for i in range(length_signal):
-        res = 0
-
-        for j in range(length_kernel):
-            res += kernel[j] * new_signal[i+j]
-
-        conv[i] = np.array([res])
-
-    # Se devuelve el vector convolucionado
-    return conv
-
 #
 ################################################################################
 
 ################################################################################
-# Apartado 1
+# Ejercicio 1
 #
 
 ########
@@ -675,8 +541,7 @@ def not_max_suppression_harris(harris, threshold, env):
     de su entorno (env) para un tamaño de entorno prefijado.
     Permite la utilización de un umbral (threshold) para eliminar aquellos
     puntos Harris que se consideren elevados.
-    Devuelve una lista con los máximos locales definidos por env y otra lista
-    con los valores correspondientes.
+    Devuelve una lista con los keyPoints y su valor correspondiente.
     """
 
     # Se guardan las dimensiones de la imagen
@@ -739,14 +604,15 @@ def not_max_suppression_harris(harris, threshold, env):
                                 col_insp_init:col_insp_end+1] = 0
 
                     # Se guarda el punto actual real como máximo local
-                    max_points.append([(row-env, col-env), \
-                                            harris[row-env, col-env]])
+                    # utilizando la estructura cv2.KeyPoint
+                    max_points.append([cv2.KeyPoint(row-env, col-env, _size=0, \
+                                    _angle=0), harris[row-env, col-env]])
 
     # Se devuelven las coordenadas de los puntos máximos locales y su valor
     return max_points
 
 def get_harris(img, sigma_block_size = 1.5, sigma_ksize = 1, k = 0.04, \
-                threshold = -10, env = 5, scale = -1):
+                threshold = -10000, env = 5, scale = -1):
     """
     Obtiene una lista potencial de los puntos Harris de una imagen (img).
     Los valores de los parámetros utilizados dependen del sigma que se
@@ -787,7 +653,7 @@ def get_harris(img, sigma_block_size = 1.5, sigma_ksize = 1, k = 0.04, \
 
     # Se añade la escala a cada punto
     for i in range(length):
-        max_points[i].append(scale)
+        max_points[i][0].size = scale
 
     # Se devuelven los puntos
     return max_points
@@ -830,8 +696,13 @@ def show_circles(img, points, radius = 2, orientations = False, color1 = 0, \
     # En points se tienen las coordenadas de los puntos que se van a rodear con
     #un círculo
     for point in points:
-        cv2.circle(img, center=(point[0][1], point[0][0]), \
-                    radius=point[2]*radius, color=color1, thickness=2)
+
+        x = int(point[0].pt[0])
+        y = int(point[0].pt[1])
+        size = int(point[0].size)
+
+        cv2.circle(img, center=(y, x), \
+                    radius=size*radius, color=color1, thickness=2)
 
     # Si se indica que se dibujen las orientaciones
     if orientations:
@@ -839,16 +710,13 @@ def show_circles(img, points, radius = 2, orientations = False, color1 = 0, \
         # Se recorren todos los puntos
         for point in points:
 
-            # Se transforma la orientación del punto en un ángulo dado
-            angle = point[3]/np.pi*180
-
             # Se calcula el primer punto de la línea
-            pt1 = (point[0][1], point[0][0])
+            pt1 = (int(point[0].pt[1]), int(point[0].pt[0]))
 
             # Se calcula el segundo punto de la línea utilizando el ángulo y
             # se debe multiplicar por el radio utilizado al mostrar el punto
-            pt2 = (int(point[0][1]+np.sin(angle)*point[2]*radius), \
-                    int(point[0][0]+np.cos(angle)*point[2]*radius))
+            pt2 = (int(point[0].pt[1]+np.sin(point[0].angle)*point[0].size*radius), \
+                    int(point[0].pt[0]+np.cos(point[0].angle)*point[0].size*radius))
 
             # Se pinta la línea del punto actual
             cv2.line(img, pt1, pt2, color2)
@@ -862,8 +730,10 @@ def show_circles(img, points, radius = 2, orientations = False, color1 = 0, \
 ########
 # Sección B
 #
+# - http://opencv-python-tutroals.readthedocs.io/en/latest/py_tutorials/py_feature2d/py_features_harris/py_features_harris.html
+#
 
-def refine_harris_points(img, points, env = 5, zero_zone = -1, \
+def refine_harris_points(img, points, size, env = 5, zero_zone = -1, \
     criteria = (cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER, 100, 0.001)):
     """
     Refina la posición de unos puntos (points) recibidos sobre una imagen (img)
@@ -875,15 +745,26 @@ def refine_harris_points(img, points, env = 5, zero_zone = -1, \
 
     # Se crea un array de numpy (requerido por la función cornerSubPix) con
     # las coordenadas de los puntos que se quieren refinar
-    new_points = [point[0] for point in points]
+    new_points = list()
+    index = list()
+
+    # Se recorren todos los puntos y solo se obtienen los que pertenezcan a la
+    # al nivel de la pirámide correspondiente
+    for i, point in enumerate(points):
+
+        if point[0].size == size:
+            new_points.append(point[0].pt)
+            index.append(i)
+
+    new_points = np.float32(new_points)
 
     # Se refinan los puntos (deben ser float)
-    cv2.cornerSubPix(img, np.float32(new_points), (env, env), \
+    cv2.cornerSubPix(img, new_points, (env, env), \
                         (zero_zone, zero_zone), criteria)
 
     # Se modifican las coordenadas con los puntos refinados
     for i, point in enumerate(new_points):
-        points[i][0] = point
+        points[index[i]][0].pt = (point[0], point[1])
 
     return points
 
@@ -910,7 +791,7 @@ def get_orientations(img, points, sigma, own = True):
     # Para aplicar el arcotangente es necesario modificar la estructura del
     # array de puntos de manera que existan dos filas (x, y) y tantas columnas
     # como puntos se tengan, por lo que se hace la transpuesta.
-    new_points = np.array([point[0] for point in points]).T
+    new_points = np.array([(int(point[0].pt[0]), int(point[0].pt[1])) for point in points]).T
 
     # Se calcula la arcotangente de cada punto que devuelve la orientación que
     # tendra dicho punto. Esa operación se realiza para todos los puntos que se
@@ -918,7 +799,7 @@ def get_orientations(img, points, sigma, own = True):
     orientations = np.arctan2(img_x, img_y)[new_points[0], new_points[1]]
 
     for point, orientation in zip(points, orientations):
-        point.append(orientation)
+        point[0].angle = orientation/np.pi*180
 
     # Se devuelven los puntos con sus orientaciones
     return points
@@ -942,8 +823,7 @@ def get_descriptors(img, keypoints):
 
     # De la lista con los puntos que se tenía, se crea otra lista con el tipo
     # de datos cv2.KeyPoint para poder utilizar sift.compute()
-    keypoints = [cv2.KeyPoint(point[0][0], point[0][1], _size=point[2], \
-                    _angle=point[3]) for point in keypoints]
+    keypoints = [point[0] for point in keypoints]
 
     # Se calculan los descriptores
     return sift.compute(img, keypoints)
@@ -955,20 +835,334 @@ def get_descriptors(img, keypoints):
 ################################################################################
 
 ################################################################################
-# Apartado 2
+# Ejercicio 2
+#
+# - https://docs.opencv.org/3.0-beta/doc/py_tutorials/py_feature2d/py_matcher/py_matcher.html
 #
 
+def get_keypoints_descriptors(img, own = False):
+    """
+    Dada una imagen, calcula sus keypoints y descriptores y los devuelve
+    """
 
+    if own:
+
+        # Se obtienen los puntos Harris
+        keypoints = get_harris(img, scale = 1)
+
+        # Se guardan los mejores
+        keypoints = get_best_harris(points)
+
+        # Se actualizan los puntos con las orientaciones que tienen
+        keypoints = get_orientations(img, points, sigma=5, own = False)
+
+        # Se calculan los descriptores utilizando los keypoints generados
+        # manualmente
+        keypoints, descriptors = get_descriptors(img, keypoints)
+
+    else:
+
+        # Se extraen los keyPoints y los descriptores de las dos primeras
+        # imágenes
+        keypoints, descriptors = sift.detectAndCompute(img, None)
+
+    # Se devuelven los keypoints y descriptores calculados
+    return keypoints, descriptors
+
+
+def get_matches_bf_cc(img1, img2, n = 30, flag = 2, get_data = False):
+    """
+    Dadas dos imágenes (img1, img2), calcula los keypoints y los descriptores
+    para obtener los matches de ambas imágenes con la técnica
+    "BruteForce+crossCheck".
+    Se puede indicar el número de matches que se quieren mostrar (n).
+    El flag permite indicar si se quieren que se muestren los keypoints y los
+    matches (0) o solo los matches (2).
+    Si se indica get_data = True, se devolverán los keypoints, descriptores y
+    los matches.
+    Devuelve una imagen que se compone de las dos imágenes con sus matches.
+    """
+
+    # Se obtienen los keypoints y los descriptores de las dos imágenes
+    keypoints1, descriptors1 = get_keypoints_descriptors(img1)
+    keypoints2, descriptors2 = get_keypoints_descriptors(img2)
+
+    # Se crea el objeto BFMatcher de OpenCV activando la validación cruzada
+    bf = cv2.BFMatcher(crossCheck = True)
+
+    # Se consiguen los puntos con los que hace match
+    matches = bf.match(descriptors1, descriptors2)
+
+    # Se ordenan los matches dependiendo de la distancia entre ambos puntos
+    # guardando solo los n mejores. Solo se hace si se quiere una mejora de
+    # los matches
+    #matches = sorted(matches, key = lambda x:x.distance)[0:n]
+
+    # Se guardan solo algunos puntos (n) aleatorios
+    matches = random.sample(matches, n)
+
+    # Se crea la imagen que se compone de ambas imágenes con los matches
+    # generados. El sexto parámetro es la variable donde se quiere guardar la
+    # salida
+    matcher = cv2.drawMatches(yos1, keypoints1, yos2, keypoints2, matches, \
+                                None, flags = flag)
+
+    # El resultado normal será la imagen con los matches
+    res = matcher
+
+    # Si se ha indicado que se devuelvan los datos, el resultado serán todos Los
+    # datos calculados
+    if get_data:
+        res = ((keypoints1, descriptors1), (keypoints2, descriptors2), matches)
+
+    return res
+
+def get_matches_knn(img1, img2, k = 2, ratio = 0.75, n = 30, flag = 2, \
+                        get_data = False, improve = False):
+    """
+    Dadas dos imágenes (img1, img2), calcula los keypoints y los descriptores
+    para obtener los matches de ambas imágenes con la técnica
+    "Lowe-Average-2NN", utilizando los k vecinos más cercanos (por defecto, 2).
+    Para obtener los mejores matches, se calcula utilizando un ratio (ratio).
+    Se puede indicar el número de matches que se quieren mostrar (n).
+    El flag permite indicar si se quieren que se muestren los keypoints y los
+    matches (0) o solo los matches (2).
+    Si se indica get_data = True, se devolverán los keypoints, descriptores y
+    los matches.
+    Si se indica el flag "improve" como True, elegirá los mejores matches.
+    Devuelve una imagen que se compone de las dos imágenes con sus matches.
+    """
+
+    # Se obtienen los keypoints y los descriptores de las dos imágenes
+    keypoints1, descriptors1 = get_keypoints_descriptors(img1)
+    keypoints2, descriptors2 = get_keypoints_descriptors(img2)
+
+    # Se crea el objeto BFMatcher de OpenCV
+    bf = cv2.BFMatcher()
+
+    # Se consiguen los puntos con los que hace match indicando los vecinos más
+    # cercanos con los que se hace la comprobación
+    matches = bf.knnMatch(descriptors1, descriptors2, k)
+
+    # Si se indica que se elijan los mejores matches
+    if improve:
+
+        # Solo se hace para hacer una mejora de los matches
+        # Se guardan los puntos que cumplan con un radio en concreto
+        good = []
+
+        # Se recorren todos los matches
+        for p1, p2 in matches:
+
+            # Si la distancia del punto de la primera imagen es menor que la
+            # distancia del segundo punto aplicándole un ratio, el punto se
+            # considera bueno
+            if p1.distance < ratio*p2.distance:
+                good.append([p1])
+
+        # Se ordenan los matches dependiendo de la distancia entre ambos puntos
+        # guardando solo los n mejores
+        matches = sorted(good, key = lambda x:x[0].distance)
+
+    # Se guardan solo algunos puntos (n) aleatorios
+    matches = random.sample(matches, n)
+
+    # Se crea la imagen que se compone de ambas imágenes con los matches
+    # generados. El sexto parámetro es la variable donde se quiere guardar la
+    # salida
+    matcher = cv2.drawMatchesKnn(yos1, keypoints1, yos2, keypoints2, matches, \
+                                None, flags = flag)
+
+    # El resultado normal será la imagen con los matches
+    res = matcher
+
+    # Si se ha indicado que se devuelvan los datos, el resultado serán todos Los
+    # datos calculados
+    if get_data:
+        res = ((keypoints1, descriptors1), (keypoints2, descriptors2), matches)
+
+    return res
 
 #
 ################################################################################
 
-"""
-- Refinamiento: http://opencv-python-tutroals.readthedocs.io/en/latest/py_tutorials/py_feature2d/py_features_harris/py_features_harris.html
--
--
--
-"""
+################################################################################
+# Ejercicio 3
+#
+# - https://docs.opencv.org/3.0-beta/doc/py_tutorials/py_feature2d/py_feature_homography/py_feature_homography.html
+# - https://github.com/tsherlock/panorama/blob/master/pano_stitcher.py
+
+def get_homography(img1, img2, improve = False):
+    """
+    Obtiene la homografía entre dos imágenes y la devuelve.
+    Si se indica el flag "improve" como True, elegirá los mejores matches.
+    """
+
+    # Se calculan los keypoints, descriptores y matches de ambas imágenes
+    data = get_matches_knn(img1, img2, get_data = True, improve = improve)
+
+    # Se obtienen los keypoints, descriptores y matches entre ellos
+    keypoints1 = data[0][0]
+    descriptors1 = data[0][1]
+
+    keypoints2 = data[1][0]
+    descriptors2 = data[1][1]
+
+    matches = data[2]
+
+    # Se crean los puntos de la imagen fuente generando una matriz de filas
+    # como matches hay y 2 columnas
+    src_points = np.float32([keypoints1[point[0].queryIdx].pt \
+                                    for point in matches]).reshape(-1, 1, 2)
+
+    # Se crean los puntos de la imagen destino generando una matriz de filas
+    # como matches hay y 2 columnas
+    dst_points = np.float32([keypoints2[point[0].trainIdx].pt \
+                                    for point in matches]).reshape(-1, 1, 2)
+
+    # Para generar una homografía son necesarios al menos cuatro puntos, si no
+    # se obtienen esos cuatro puntos, se devuelve una matriz 3x3 vacía
+    if len(src_points) > 4:
+        M, mask = cv2.findHomography(src_points, dst_points, cv2.RANSAC, 1)
+    else:
+        M = np.ndarray((3, 3), dtype=cv2.float32)
+
+    # Se devuelve la homografía
+    return M
+
+def get_homography_to_center(img, width, height):
+    """
+    Calcula la homografía necesaria para llevar una imagen (img) al centro de
+    un mosaico de tamaño (width x height)
+    """
+
+    # Se obtienen las dimensiones de la imagen central
+    height_center, width_center, z_center = img.shape
+
+    # Se calculan las coordenadas de inicio de la imagen central
+    t_width = width/2 - width_center/2
+    t_height = height/2 - height_center/2
+
+    # Se crea una matriz 3x3 con los valores a 0 menos la diagonal a 1 y los
+    # valores de la traslación
+    m0 = np.array([[1, 0, t_width], [0, 1, t_height], [0, 0, 1]], \
+                    dtype=np.float32)
+
+    return m0
+
+def get_mosaic(*imgs, crop = True, improve = False):
+    """
+    Genera un mosaico a partir de las imágenes recibidas (imgs).
+    Se puede especificar si se recortan los bordes de la imagen (crop = True).
+    Si se indica el flag "improve" como True, elegirá los mejores matches.
+    Devuelve una imagen que contiene el mosaico.
+    """
+
+    # Se calcula cuál es el número de la imagen que se encuentra en el centro
+    index_img_center = int(len(imgs)/2)
+
+    # Se obtiene la imagen que está en el centro
+    img_center =  imgs[index_img_center]
+
+    # Se calcula el ancho del mosaico como la suma de todos los anchos de las
+    # imágenes
+    width = sum([img_center.shape[1] for img in imgs])
+
+    # Se calcula la altura del mosaico
+    height = imgs[0].shape[0]*2
+
+    # Para componer el mosaico hace falta una homografía principal que se
+    # encargue de llevar las imágenes desde su posición hasta el centro.
+    # Se debe calcular manualmente indicando el desplazamiento de la imagen
+    # central hasta el centro del mosaico
+    m0 = get_homography_to_center(img_center, width, height)
+
+    # Una vez que se tiene la homografía principal, se coloca la imagen central
+    # en el centro del mosaico
+    img = cv2.warpPerspective(img_center, m0, (width, height), \
+                                borderMode=cv2.BORDER_TRANSPARENT)
+
+    # Se crea una lista con las homografías
+    homographies = [None] * len(imgs)
+
+    # Se añade la principal en la posición que ocupa la imagen central
+    homographies[index_img_center] = m0
+
+    # Se recorren todas las imágenes hacia la izquierda, haciendo las
+    # homografías de unas con otras y colocándolas hacia el centro de la imagen
+    # con la homografía principal
+    for i in range(0, index_img_center)[::-1]:
+
+        # Se calcula la homografía de la imagen actual con la de su derecha
+        m = get_homography(imgs[i], imgs[i+1], improve = improve)
+
+        # Se le aplica a la homografía la transformación que permite llevar
+        # la imagen a la parte central
+        m = np.dot(homographies[i+1], m)
+
+        # Se guarda la homografía actual para que sea utilizada por el resto
+        homographies[i] = m
+
+        # Se aplica la transformación a la imagen para juntarla con las que ya
+        # se encuentran en el mosaico
+        img = cv2.warpPerspective(imgs[i], m, (width, height), \
+                                    dst=img, borderMode=cv2.BORDER_TRANSPARENT)
+
+    # Se recorren todas las imágenes hacia la derecha, haciendo las homografías
+    # de unas con otras y colocándolas hacia el centro de la imagen con la
+    # homografía principal
+    for i in range(index_img_center+1, len(imgs)):
+
+        # Se calcula la homografía de la imagen actual con la de su izquierda
+        m = get_homography(imgs[i], imgs[i-1], improve = improve)
+
+        # Se le aplica a la homografía la transformación que permite llevar
+        # la imagen a la parte central
+        m = np.dot(homographies[i-1], m)
+
+        # Se guarda la homografía actual para que sea utilizada por el resto
+        homographies[i] = m
+
+        # Se aplica la transformación a la imagen para juntarla con las que ya
+        # se encuentran en el mosaico
+        img = cv2.warpPerspective(imgs[i], m, (width, height), \
+                                    dst=img, borderMode=cv2.BORDER_TRANSPARENT)
+
+    # Si se ha indicado, se recortan los bordes de la imagen
+    if crop:
+        img = crop_image(img)
+
+    # Se devuelve la imagen
+    return img
+
+def crop_image(img):
+    """
+    Recorta todos los bordes negros a una imagen y la devuelve.
+    Código completamente obtenido de:
+    - https://stackoverflow.com/questions/13538748/crop-black-edges-with-opencv
+    """
+
+    # Se convierte la imagen a escala de grises
+    gray = cv2.cvtColor(img,cv2.COLOR_BGR2GRAY)
+
+    # Interesa guardar el segundo valor devuelto que contiene una matriz del
+    # tamaño de la imagen con valores binarios, diferenciando el negro del
+    # resto de colores
+    _, thresh = cv2.threshold(gray, 1, 255, cv2.THRESH_BINARY)
+
+    # Se llama a la función de OpenCV que devuelve las coordenadas de todos Los
+    # puntos que forman el contorno
+    contours = cv2.findContours(thresh, cv2.RETR_EXTERNAL, \
+                                    cv2.CHAIN_APPROX_SIMPLE)[0]
+
+    # Se obtienen las esquinas de los puntos obtenidos anteriormente
+    x, y, w, h = cv2.boundingRect(contours)
+
+    # Se devuelve la imagen delimitada por las esquinas
+    return img[y:y+h,x:x+w]
+
+#
+################################################################################
 
 ################################################################################
 # Ejecuciones
@@ -984,7 +1178,7 @@ if __name__ == "__main__":
     # 1.a:
     #ex.append(1)
 
-    # 1.b:
+    # 1.b
     #ex.append(2)
 
     # 1.c:
@@ -994,7 +1188,13 @@ if __name__ == "__main__":
     #ex.append(4)
 
     # 2:
-    ex.append(5)
+    #ex.append(5)
+
+    # 3:
+    #ex.append(6)
+
+    # 4:
+    ex.append(7)
 
     # Listas para la visualización de las imágenes
     imgs = []
@@ -1003,14 +1203,119 @@ if __name__ == "__main__":
     # Se cargan las imágenes a mostrar, se aplica el esquema de color, se
     # convierten los valores a flotantes para trabajar bien con ellos y se le
     # asigna un título
-    img1 = cv2.imread(path+'Tablero1.jpg')
+    img1 = cv2.imread(path+'yosemite1.jpg')
     img1 = set_c_map(img1, cmap)
-    #img1 = img1.astype(float)
     img1 = np.float32(img1)
-    img_title1 = "Tablero1"
+    img_title1 = "Yosemite1"
+
+    # Imágenes Yosemite
+    yos1 = mpimg.imread(path+'yosemite1.jpg')
+    #yos1 = set_c_map(yos1)
+    #yos1 = np.float32(yos1)
+    yos_title1 = "Yosemite1"
+
+    yos2 = mpimg.imread(path+'yosemite2.jpg')
+    #yos2 = set_c_map(yos2, cmap)
+    #yos2 = np.float32(yos2)
+    yos_title2 = "Yosemite2"
+
+    yos3 = mpimg.imread(path+'yosemite3.jpg')
+    #yos3 = set_c_map(yos3, cmap)
+    #yos3 = np.float32(yos3)
+    yos_title3 = "Yosemite3"
+
+    yos4 = mpimg.imread(path+'yosemite4.jpg')
+    #yos4 = set_c_map(yos4, cmap)
+    #yos4 = np.float32(yos4)
+    yos_title4 = "Yosemite4"
+
+    yos5 = mpimg.imread(path+'yosemite5.jpg')
+    #yos5 = set_c_map(yos5, cmap)
+    #yos5 = np.float32(yos5)
+    yos_title5 = "Yosemite5"
+
+    yos6 = mpimg.imread(path+'yosemite6.jpg')
+    #yos6 = set_c_map(yos6, cmap)
+    #yos6 = np.float32(yos6)
+    yos_title6 = "Yosemite6"
+
+    yos7 = mpimg.imread(path+'yosemite7.jpg')
+    #yos7 = set_c_map(yos7, cmap)
+    #yos7 = np.float32(yos7)
+    yos_title7 = "Yosemite7"
+
+    # Imágenes Mosaico
+    mos2 = mpimg.imread(path+'mosaico002.jpg')
+    #yos1 = set_c_map(yos1)
+    #yos1 = np.float32(yos1)
+    mos_title2 = "Mos2"
+
+    mos3 = mpimg.imread(path+'mosaico003.jpg')
+    #yos1 = set_c_map(yos1)
+    #yos1 = np.float32(yos1)
+    mos_title3 = "Mos3"
+
+    mos4 = mpimg.imread(path+'mosaico004.jpg')
+    #yos1 = set_c_map(yos1)
+    #yos1 = np.float32(yos1)
+    mos_title4 = "Mos4"
+
+    mos5 = mpimg.imread(path+'mosaico005.jpg')
+    #yos1 = set_c_map(yos1)
+    #yos1 = np.float32(yos1)
+    mos_title5 = "Mos5"
+
+    mos6 = mpimg.imread(path+'mosaico006.jpg')
+    #yos1 = set_c_map(yos1)
+    #yos1 = np.float32(yos1)
+    mos_title6 = "Mos6"
+
+    mos7 = mpimg.imread(path+'mosaico007.jpg')
+    #yos1 = set_c_map(yos1)
+    #yos1 = np.float32(yos1)
+    mos_title7 = "Mos7"
+
+    mos8 = mpimg.imread(path+'mosaico008.jpg')
+    #yos1 = set_c_map(yos1)
+    #yos1 = np.float32(yos1)
+    mos_title8 = "Mos8"
+
+    mos9 = mpimg.imread(path+'mosaico009.jpg')
+    #yos1 = set_c_map(yos1)
+    #yos1 = np.float32(yos1)
+    mos_title9 = "Mos9"
+
+    mos10 = mpimg.imread(path+'mosaico010.jpg')
+    #yos1 = set_c_map(yos1)
+    #yos1 = np.float32(yos1)
+    mos_title10 = "Mos10"
+
+    mos11 = mpimg.imread(path+'mosaico011.jpg')
+    #yos1 = set_c_map(yos1)
+    #yos1 = np.float32(yos1)
+    mos_title11 = "Mos11"
+
+    owna = mpimg.imread(path+'owna.jpg')
+    ownb = mpimg.imread(path+'ownb.jpg')
+    ownc = mpimg.imread(path+'ownc.jpg')
+
+    own1 = mpimg.imread(path+'own1.jpg')
+    own2 = mpimg.imread(path+'own2.jpg')
+    own3 = mpimg.imread(path+'own3.jpg')
+    own4 = mpimg.imread(path+'own4.jpg')
+    own5 = mpimg.imread(path+'own5.jpg')
+    own6 = mpimg.imread(path+'own6.jpg')
+    own7 = mpimg.imread(path+'own7.jpg')
+    own8 = mpimg.imread(path+'own8.jpg')
+    own9 = mpimg.imread(path+'own9.jpg')
+    own10 = mpimg.imread(path+'own10.jpg')
+    own11 = mpimg.imread(path+'own11.jpg')
+    own12 = mpimg.imread(path+'own12.jpg')
+    own13 = mpimg.imread(path+'own13.jpg')
+    own14 = mpimg.imread(path+'own14.jpg')
 
     ############################################################################
-    # Apartado 1
+    # Ejercicio 1
     #
 
     ########
@@ -1042,7 +1347,7 @@ if __name__ == "__main__":
         for i, img in enumerate(img_gauss):
             points = points + get_harris(img, scale = i+1)
 
-        # Se escogen los 1500 mejores
+        # Se escogen los 500 mejores
         points500 = get_best_harris(points, 500)
 
         # Se añade la imagen a la lista de imágenes
@@ -1114,7 +1419,15 @@ if __name__ == "__main__":
         for i, img in enumerate(img_gauss):
             points = points + get_harris(img, scale = i+1)
 
-        points = refine_harris_points(img1, points)
+        # Se crea la lista de puntos Harris que se van a refinar
+        refine_points = []
+
+        # Se recorre cada imagen y se le calculan los puntos Harris
+        for i, img in enumerate(img_gauss):
+            refine_points = refine_points + \
+                                    refine_harris_points(img, points, i+1)
+
+        points = refine_points
 
         # Se escogen los 500 mejores
         points500 = get_best_harris(points, 500)
@@ -1168,10 +1481,10 @@ if __name__ == "__main__":
     if 3 in ex:
 
         # Se añade la imagen original a la lista de imágenes
-        imgs.append(img1)
+        #imgs.append(img1)
 
         # Se añade un título a la imagen
-        imgs_title.append(img_title1)
+        #imgs_title.append(img_title1)
 
         # Se obtienen las imágenes de la pirámide Gaussiana indicando que se
         # mantenga el tamaño de la imagen original en las imágenes de los
@@ -1197,6 +1510,13 @@ if __name__ == "__main__":
         # Se añade un título a la imagen
         imgs_title.append(img_title1+": 500 puntos")
 
+        # Se muestran las imágenes que se leen inicialmente
+        show_images(imgs, imgs_title, cols = 1)
+
+        # Se vacían las listas con las imágenes y los nombres
+        imgs.clear()
+        imgs_title.clear()
+
         # Se escogen los 1000 mejores
         points1000 = get_best_harris(points, 1000)
 
@@ -1208,6 +1528,13 @@ if __name__ == "__main__":
 
         # Se añade un título a la imagen
         imgs_title.append(img_title1+": 1000 puntos")
+
+        # Se muestran las imágenes que se leen inicialmente
+        show_images(imgs, imgs_title, cols = 1)
+
+        # Se vacían las listas con las imágenes y los nombres
+        imgs.clear()
+        imgs_title.clear()
 
         # Se escogen los 1500 mejores
         points1500 = get_best_harris(points, 1500)
@@ -1222,7 +1549,7 @@ if __name__ == "__main__":
         imgs_title.append(img_title1+": 1500 puntos")
 
         # Se muestran las imágenes que se leen inicialmente
-        show_images(imgs, imgs_title, cols = 2)
+        show_images(imgs, imgs_title, cols = 1)
 
         input(continue_text)
 
@@ -1278,26 +1605,33 @@ if __name__ == "__main__":
     ############################################################################
 
     ############################################################################
-    # Apartado 2
+    # Ejercicio 2
     #
 
     """
-    Una función que sea capaz de representar varias imágenes con sus títulos en
-    una misma ventana. Usar esta función en todos los demás apartados.
+    Usar el detector SIFT de OpenCV sobre las imágenes de Yosemite.rar. Extraer
+    sus listas de keyPoints y descriptores asociados. Establecer las
+    correspondencias existentes entre ellos usando el objeto BFMatcher de
+    OpenCV.
     """
 
     if 5 in ex:
 
-        # Se añade la imagen original a la lista de imágenes
-        imgs.append(img1)
+        # Se añade la imagen con los matches calculados por
+        # bruteForce+crossCheck
+        imgs.append(get_matches_bf_cc(yos1, yos2))
 
         # Se añade un título a la imagen
-        imgs_title.append(img_title1)
+        imgs_title.append("BruteForce+CrossCheck")
 
+        # Se añade la imagen con los matches calculados por Lowe-Average-2NN
+        imgs.append(get_matches_knn(yos1, yos2))
 
+        # Se añade un título a la imagen
+        imgs_title.append("Lowe-Average-2NN")
 
         # Se muestran las imágenes que se leen inicialmente
-        show_images(imgs, imgs_title, cols = 2)
+        show_images(imgs, imgs_title, cols = 1, gray = False)
 
         input(continue_text)
 
@@ -1307,6 +1641,89 @@ if __name__ == "__main__":
     # Se vacían las listas con las imágenes y los nombres
     imgs.clear()
     imgs_title.clear()
+
+    ############################################################################
+    # Ejercicio 3
+    #
+
+    """
+    Escribir una función que genere un mosaico de calidad a partir de n=3
+    imágenes relacionadas por homografías, sus listas de keyPoints calculados
+    de acuerdo al punto anterior y las correspondencias encontradas entre dichas
+    listas.
+    """
+
+    if 6 in ex:
+
+        # Se añade el mosaico de las imágenes que se quieran
+        imgs.append(get_mosaic(yos1, yos2, yos3, improve = True))
+
+        # Se añade un título a la imagen
+        imgs_title.append("Yosemite Mosaic")
+
+        # Se muestran las imágenes que se leen inicialmente
+        show_images(imgs, imgs_title, cols = 1, gray = False)
+
+        # Se vacían las listas con las imágenes y los nombres
+        imgs.clear()
+        imgs_title.clear()
+
+        # Se añade el mosaico de las imágenes que se quieran
+        imgs.append(get_mosaic(owna, ownb, ownc, improve = True))
+
+        # Se añade un título a la imagen
+        imgs_title.append("ETSIIT Mosaic")
+
+        # Se muestran las imágenes que se leen inicialmente
+        show_images(imgs, imgs_title, cols = 1, gray = False)
+
+        input(continue_text)
+
+    #
+    ############################################################################
+
+    # Se vacían las listas con las imágenes y los nombres
+    imgs.clear()
+    imgs_title.clear()
+
+    ############################################################################
+    # Ejercicio 4
+    #
+
+    """
+    Similar al punto anterior pero para N > 5
+    """
+
+    if 7 in ex:
+
+        # Se añade el mosaico de las imágenes que se quieran
+        imgs.append(get_mosaic(mos2, mos3, mos4, mos5, mos6, mos7, mos8, mos9, \
+                                    mos10, mos11))
+
+        # Se añade un título a la imagen
+        imgs_title.append("ETSIIT Mosaic")
+
+        # Se muestran las imágenes que se leen inicialmente
+        show_images(imgs, imgs_title, cols = 1, gray = False)
+
+        # Se vacían las listas con las imágenes y los nombres
+        imgs.clear()
+        imgs_title.clear()
+
+        # Se añade el mosaico de las imágenes que se quieran
+        imgs.append(get_mosaic(own1, own2, own3, own4, own5, own6, own7, own8, \
+                            own9, own10, own11, own12, own13, improve = True))
+
+        # Se añade un título a la imagen
+        imgs_title.append("Granada Mosaic")
+
+        # Se muestran las imágenes que se leen inicialmente
+        show_images(imgs, imgs_title, cols = 1, gray = False)
+
+        input(continue_text)
+
+    #
+    ############################################################################
 
 #
 ################################################################################
