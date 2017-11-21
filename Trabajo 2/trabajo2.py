@@ -1176,22 +1176,22 @@ if __name__ == "__main__":
     ex = list()
 
     # 1.a:
-    #ex.append(1)
+    ex.append(1)
 
     # 1.b
-    #ex.append(2)
+    ex.append(2)
 
     # 1.c:
-    #ex.append(3)
+    ex.append(3)
 
     # 1.d:
-    #ex.append(4)
+    ex.append(4)
 
     # 2:
-    #ex.append(5)
+    ex.append(5)
 
     # 3:
-    #ex.append(6)
+    ex.append(6)
 
     # 4:
     ex.append(7)
@@ -1312,7 +1312,6 @@ if __name__ == "__main__":
     own11 = mpimg.imread(path+'own11.jpg')
     own12 = mpimg.imread(path+'own12.jpg')
     own13 = mpimg.imread(path+'own13.jpg')
-    own14 = mpimg.imread(path+'own14.jpg')
 
     ############################################################################
     # Ejercicio 1
