@@ -9,7 +9,7 @@ VC - Visión por Computador
 
 Curso 2017/2018
 
-Trabajo 2 - Dirección de puntos relevantes y Construcción de panoramas
+Trabajo 2 - Dirección de puntos relevantes y Construcción de panoramas s
 
 """
 
