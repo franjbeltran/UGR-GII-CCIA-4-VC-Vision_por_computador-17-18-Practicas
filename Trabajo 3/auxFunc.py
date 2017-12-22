@@ -22,24 +22,24 @@ def loadAux(filename, flagPatches):
         with open(filename,"rb") as fd:
             feat=pickle.load(fd)
         return feat["descriptors"]
-    
+
 
 def click_and_draw(event,x,y,flags,param):
     global refPt, imagen,FlagEND
-    
-    
+
+
    # if the left mouse button was clicked, record the starting
 	# (x, y) coordinates and indicate that cropping is being
 	# performed
     if  event == cv2.EVENT_LBUTTONDBLCLK:
         FlagEND= False
         cv2.destroyWindow("image")
-        
+
     elif event == cv2.EVENT_LBUTTONDOWN:
         refPt.append((x, y))
         #cropping = True
         print("rfePt[0]",refPt[0])
-    
+
 
     elif (event == cv2.EVENT_MOUSEMOVE) & (len(refPt) > 0) & FlagEND:
     # check to see if the mouse move
@@ -50,7 +50,7 @@ def click_and_draw(event,x,y,flags,param):
         cv2.line(clone,refPt[sz-1],nPt,(0, 255, 0), 2)
         cv2.imshow("image", clone)
         cv2.waitKey(0)
-        
+
     elif event == cv2.EVENT_RBUTTONDOWN:
 		# record the ending (x, y) coordinates and indicate that
 		# the cropping operation is finished
@@ -61,7 +61,7 @@ def click_and_draw(event,x,y,flags,param):
         cv2.line(imagen,refPt[sz-2],refPt[sz-1],(0, 255, 0), 2)
         cv2.imshow("image", imagen)
         cv2.waitKey(0)
-        
+
 
 def extractRegion(image):
     global refPt, imagen,FlagEND
@@ -83,4 +83,4 @@ def extractRegion(image):
     refPt.pop()
     refPt.append(refPt[0])
     cv2.destroyWindow("image")
-    return refPt	 
+    return refPt
